@@ -1,0 +1,134 @@
+/* Unrelated to chessground; only for the examples page */
+body {
+  /* background-image: linear-gradient(to bottom, #2c2c2c, #1a1a1a 116px); */
+  color: #b0b0b0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 11px;
+}
+#chessground-examples {
+  margin: 30px 0 0 0;
+  display: flex;
+  flex-flow: row;
+}
+#chessground-examples menu {
+  flex: 0 0 300px;
+  margin: 0 15px 0 0;
+}
+#chessground-examples menu a {
+  display: block;
+  cursor: pointer;
+  padding: 5px 15px;
+}
+#chessground-examples menu a:hover {
+  background: #333;
+}
+#chessground-examples menu a.active {
+  border-left: 5px solid #b0b0b0;
+}
+#chessground-examples section {
+  display: inline-block;
+  /* background: #404040; */
+  padding: 10px 12px 10px 12px;
+  border-radius: 2px;
+}
+#chessground-examples section p {
+  text-align: center;
+  margin: 20px 0 0 0;
+}
+#chessground-examples control {
+  margin-left: 20px;
+}
+#chessground-examples control .zoom {
+  margin-top: 1em;
+  display: block;
+}
+#chessground-examples control .zoom input {
+  margin-left: 1em;
+  width: 4em;
+}
+.cg-wrap-container {
+  position: relative;
+  display: inline-block;
+  padding-right: 32px; /* чтобы справа была зона для обеих иконок */
+
+}
+
+/* увеличиваем «зону захвата» + смещаем её вправо */
+.cg-wrap-container::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+
+  right: -60px;    /* ← выносим зону захвата за пределы доски */
+  width: 60px;     /* ← делаем её по шире, чтобы было удобно навестись */
+  pointer-events: all;
+}
+
+/* сам хендл теперь тоже смещён за край */
+.resize-handle {
+  position: absolute;
+  bottom: 4px;
+  right: -28px;    /* ← практически за пределы .cg-wrap */
+  width: 24px;
+  height: 24px;
+  cursor: grab;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 0;
+
+}
+
+/* показываем хендл при ховере на расширенную зону */
+.cg-wrap-container:hover .resize-handle {
+  opacity: 1;
+  pointer-events: all;
+  z-index: 1;
+
+}
+
+
+/* общий стиль для «вылазящих» кнопок */
+.cg-wrap-container .flyout-btn {
+  position: absolute;
+  right: 4px;              /* отступ от правого края контейнера */
+  width: 24px;
+  height: 24px;
+  background: rgba(255,255,255,0.8);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  cursor: pointer;
+  user-select: none;
+  z-index: 0;
+
+}
+
+/* кнопка переключения ориентации — над хендлом */
+.cg-wrap-container .toggle-orient {
+  bottom: 36px;   /* 24px высота хендла + 4px отступ + 8px между */
+  z-index: 2;
+}
+
+/* сам хендл (zoom) */
+.cg-wrap-container .resize-handle {
+  bottom: 4px;
+  z-index: 1;
+}
+
+/* показываем обе кнопки по наведению на контейнер */
+.cg-wrap-container:hover .flyout-btn {
+  opacity: 1;
+  pointer-events: all;
+}

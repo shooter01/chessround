@@ -1,0 +1,8 @@
+body {
+  font-family: 'Poppins', sans-serif;
+}
+/* Глобально или в вашем index.css */
+.streak-indicator-link .fa-stack {
+    font-size: 1.2rem !important;     /* регулируйте этот размер под себя */
+    margin: 0 0.3rem!important;                  /* расстояние между кружками */
+  }

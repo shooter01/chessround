@@ -1,0 +1,22 @@
+{
+    // 1. Общее авто-форматирование
+    "editor.formatOnSave": true,
+  
+    // 2. Если используется Prettier как дефолтный форматер для TSX/TS
+    "[typescript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescriptreact]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+  
+    // 3. (Опционально) ESLint-фиксы при сохранении
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.fixAll.eslint": "explicit"
+    },
+  
+    // 4. (Опционально) Форматировать только изменённые строки
+    // "editor.formatOnSaveMode": "modifications"
+  }
+  
