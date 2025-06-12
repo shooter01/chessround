@@ -1,29 +1,29 @@
-## Технологический стек
+# Technology Stack
 
-- **Бекенд**: Node.js  
-- **Фронтенд**: React  
-- **База данных**: PostgreSQL  
-- **Авторизация**: Keycloak  
+- **Backend:** Node.js  
+- **Frontend:** React  
+- **Database:** PostgreSQL  
+- **Authentication:** Keycloak  
 
-## Развитие
-- Добавить интеграции ✅
-- Отладить детали workflow с интеграциями ✅
-- Сделать рабочей кнопку trigger workflow ✅
--  Если отправка сообщения возвращает ошибку - она должна выводиться в интерфейсе ✅
--  Добавить inApp и улучшить структуру для новых интеграций, например Slack и Discord
--  Добавить получение и отправку inApp через api (должны поддерживаться внутрение ссылки)
--  Проверить корректность отображения analytics
--  Добавить отправку статуса прочитанного
--  Миграции данных
--  Swagger (с публичным и внутренним api)
--  Схема архитектуры
--  Вебхуки
--  Аггрегация и отправка скопом писем (по тегу?)
--  Digest
--  Delay
--  Вебхуки
--  Документация в pages
--  Регулярные релизы
--  Публичное api с очередями на Go + NATS 
--  Сборка и отправка в dockerhub
--  Автотесты
+# Development Roadmap
+
+- [x] Add integrations  
+- [x] Debug integration workflow details  
+- [x] Make the “trigger workflow” button functional  
+- [x] If sending a message returns an error, it must be displayed in the UI  
+- [ ] Add in-App notifications and improve structure for new integrations (e.g., Slack and Discord)  
+- [ ] Implement in-App sending and receiving via API (internal links must be supported)  
+- [ ] Verify correct display of analytics  
+- [ ] Add “mark as read” status reporting  
+- [ ] Data migrations  
+- [ ] Swagger (public and internal APIs)  
+- [ ] Architecture diagram  
+- [ ] Webhooks  
+- [ ] Aggregation and batched email sending (by tag?)  
+- [ ] Digest functionality  
+- [ ] Delay handling  
+- [ ] Documentation in GitHub Pages  
+- [ ] Regular release schedule  
+- [ ] Public API with Go + NATS for queuing  
+- [ ] Build and push to Docker Hub  
+- [ ] Automated tests  

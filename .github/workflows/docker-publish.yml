@@ -1,0 +1,51 @@
+# Workflow для сборки и публикации образов во GitHub Container Registry (GHCR)
+# В Settings → Secrets → Actions добавьте:
+#   GHCR_USERNAME — ваш GitHub username (обычно автоматически github.actor)
+#   GHCR_TOKEN — GitHub Personal Access Token с правом "packages:write" или используйте встроенный GITHUB_TOKEN
+
+name: Build and Push Docker Images to GHCR
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  packages: write
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - frontend
+          - backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up QEMU (для multi-platform)
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build and push ${{ matrix.service }} image to GHCR
+        uses: docker/build-push-action@v4
+        with:
+          context: ./${{ matrix.service }}
+          file: ./${{ matrix.service }}/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:latest
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:${{ github.sha }}
