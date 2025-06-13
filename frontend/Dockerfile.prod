@@ -6,13 +6,9 @@
 FROM node:20 AS builder
 WORKDIR /app
 
-# Отключаем опциональные зависимости (npm не будет пытаться подтягивать native-модули)
-ENV npm_config_omit=optional
-
-# Копируем только манифесты и ставим зависимости без optional
+# Устанавливаем зависимости
 COPY package.json package-lock.json ./
-# Используем флаг omit для отключения опциональных пакетов
-RUN npm ci --omit=optional
+RUN npm ci
 
 # Копируем исходники и собираем prod-бандл
 COPY . .
