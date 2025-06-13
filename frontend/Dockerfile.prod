@@ -1,29 +1,29 @@
+# Dockerfile.prod — production build for React + Vite app
+
 # Stage 1: build static assets
 FROM node:20 AS builder
 WORKDIR /app
 
-# Отключаем опциональные зависимости (npm не будет пытаться подтягивать native-модули Rollup)
-ENV NPM_CONFIG_OMIT=optional
+# Ставим флаг, чтобы npm не пытался подтягивать native optional dependencies
+ENV NPM_CONFIG_OPTIONAL=false
 
-# Копируем только package-файлы, чтобы максимально кешировать слои
+# Копируем package-файлы и ставим зависимости без optional
 COPY package*.json ./
+RUN npm ci
 
-# Устанавливаем все зависимости, кроме опциональных
-RUN npm ci --omit=optional
-
-# Копируем исходники и собираем продакшн-бандл
+# Копируем исходники и собираем prod-бандл
 COPY . .
 RUN npm run build
 
-# Stage 2: serve with nginx
+# Stage 2: сервим статические файлы через nginx
 FROM nginx:alpine
-# Убираем дефолтный контент
+# Чистим дефолтный html-контент
 RUN rm -rf /usr/share/nginx/html/*
 
-# Копируем готовый билд
+# Копируем собранную папку dist из предыдущего stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Если нужен ваш собственный конфиг nginx—копируйте его сюда
+# (Опционально) ваш собственный конфиг nginx
 # COPY nginx.conf /etc/nginx/nginx.conf
 
 EXPOSE 80
