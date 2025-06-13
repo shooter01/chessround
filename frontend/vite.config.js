@@ -7,7 +7,12 @@ export default defineConfig({
   server: {
     host: true, // слушаем на всех интерфейсах
     port: 3000,
-    allowedHosts: 'all',
+    allowedHosts: [
+      'localhost',
+      'dofrag.com', // без порта
+      'dofrag.com:3000', // с портом, если заходите так
+      '.dofrag.com', // любой поддомен
+    ],
   },
   // остальная конфигурация...
 });
