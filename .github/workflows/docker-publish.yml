@@ -16,6 +16,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+      # Добавляем шаг для скачивания драйвера (если используем онлайн-скачивание)
+      - name: Download PostgreSQL driver
+        run: |
+          mkdir -p keycloak/driver
+          curl -o keycloak/driver/postgresql.jar \
+            https://jdbc.postgresql.org/download/postgresql-42.7.3.jar
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
