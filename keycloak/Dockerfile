@@ -1,40 +1,30 @@
-# keycloak/Dockerfile
+# Dockerfile для Keycloak с предустановленной PostgreSQL поддержкой
+FROM quay.io/keycloak/keycloak:24.0.1 as builder
 
-# ——————— Этап сборки ———————
-FROM quay.io/keycloak/keycloak:23.0.6 AS builder
+# Установка временных зависимостей (curl)
+USER root
+RUN microdnf update -y && \
+    microdnf install -y curl && \
+    microdnf clean all
+USER keycloak
 
-# Указываем параметры сборки
-ARG KC_DB_URL=jdbc:postgresql://postgres-service.default.svc.cluster.local:5432/keycloak
-ENV KC_DB=postgres \
-    KC_DB_URL=${KC_DB_URL} \
-    KC_DB_USERNAME=keycloak \
-    KC_DB_PASSWORD=password \
-    KC_HTTP_RELATIVE_PATH=/auth
+# Установка драйвера PostgreSQL
+RUN curl -o /opt/keycloak/providers/postgresql.jar \
+    https://jdbc.postgresql.org/download/postgresql-42.7.3.jar
 
-# Собираем оптимизированный сервер с контекстным путём /auth
-RUN /opt/keycloak/bin/kc.sh build \
-    --db=postgres \
-    --http-relative-path=/auth
+# Предварительная сборка с PostgreSQL
+RUN /opt/keycloak/bin/kc.sh build --db=postgres
 
-# ——————— Финальный образ ———————
-FROM quay.io/keycloak/keycloak:23.0.6
+# Финальный образ
+FROM quay.io/keycloak/keycloak:24.0.1
+COPY --from=builder /opt/keycloak/ /opt/keycloak/
 
-# Копируем всё из builder, включая “собранные” слои
-COPY --from=builder /opt/keycloak /opt/keycloak
+# Дополнительные настройки
+ENV KEYCLOAK_ADMIN=admin
+ENV KEYCLOAK_ADMIN_PASSWORD=admin
 
-# Админские креды
-ENV KEYCLOAK_ADMIN=admin \
-    KEYCLOAK_ADMIN_PASSWORD=admin
+# Используем не-root пользователя
+USER 1000
 
-# Прокси и хосты (Istio → X-Forwarded-*)
-ENV KC_PROXY=edge \
-    KC_HOSTNAME=dofrag.com \
-    KC_HOSTNAME_STRICT=false \
-    KC_HOSTNAME_STRICT_BACKCHANNEL=false \
-    KC_HTTP_ENABLED=true
-
-# Порт по умолчанию 8080
-EXPOSE 8080
-
-# Запускаем оптимизированный продакшен-сервер
-ENTRYPOINT ["/opt/keycloak/bin/kc.sh", "start", "--optimized"]
+ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
+CMD ["start", "--optimized"]
