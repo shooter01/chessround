@@ -13,8 +13,6 @@ jobs:
   # Сначала собираем Keycloak - базовая зависимость
   build-keycloak:
     runs-on: ubuntu-latest
-    outputs:
-      image-tag: ${{ steps.image-tag.outputs.tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -33,7 +31,6 @@ jobs:
           password: ${{ secrets.GHCR_TOKEN }}
 
       - name: Build and push Keycloak image
-        id: build-keycloak
         uses: docker/build-push-action@v4
         with:
           context: ./keycloak
@@ -44,10 +41,6 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/keycloak:postgres
             ghcr.io/${{ github.repository_owner }}/keycloak:${{ github.sha }}
 
-      - name: Set image tag output
-        id: image-tag
-        run: |
-          echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
 
   # Затем frontend и backend, которые зависят от Keycloak
   build-frontend:
