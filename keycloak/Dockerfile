@@ -1,16 +1,15 @@
 # Dockerfile для Keycloak с предустановленной PostgreSQL поддержкой
 FROM quay.io/keycloak/keycloak:24.0.1 as builder
 
-# Установка временных зависимостей (curl)
+# Установка драйвера PostgreSQL с помощью wget (без curl)
 USER root
 RUN microdnf update -y && \
-    microdnf install -y curl && \
+    microdnf install -y wget && \
+    wget -O /opt/keycloak/providers/postgresql.jar \
+    https://jdbc.postgresql.org/download/postgresql-42.7.3.jar && \
+    microdnf remove -y wget && \
     microdnf clean all
 USER keycloak
-
-# Установка драйвера PostgreSQL
-RUN curl -o /opt/keycloak/providers/postgresql.jar \
-    https://jdbc.postgresql.org/download/postgresql-42.7.3.jar
 
 # Предварительная сборка с PostgreSQL
 RUN /opt/keycloak/bin/kc.sh build --db=postgres
