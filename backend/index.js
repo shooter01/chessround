@@ -3,7 +3,7 @@ const cors = require('cors'); // Импорт CORS
 const checkJwt = require('./middlewares/checkJwt');
 
 const { router: authRoutes } = require('./routes/authRoutes'); // Импортируем router из authRoutes
-// const workspaceRoutes = require('./routes/workflowsRoutes'); // Убедитесь, что путь корректный
+const api = require('./routes/api'); // Убедитесь, что путь корректный
 
 const app = express();
 const PORT = 5000;
@@ -23,7 +23,7 @@ app.use(cors());
 // Middleware для проверки JWT токенов
 // Подключаем маршруты
 app.use('/auth', authRoutes); // Все маршруты из authRoutes будут начинаться с /auth
-// app.use('/workspaces', workspaceRoutes);
+app.use('/api', api);
 
 // Запуск сервера
 app.listen(PORT, () => {

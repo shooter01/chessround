@@ -7,11 +7,7 @@ export const autoSwitch: Unit = {
   run(cont) {
     const configs: Array<() => { fen: string; lastMove: Key[] }> = [
       () => {
-        return {
-          orientation: 'black',
-          fen: 'rnbqkb1r/pp1ppppp/5n2/8/3N1B2/8/PPP1PPPP/RN1QKB1R b KQkq - 0 4',
-          lastMove: ['f3', 'd4'],
-        };
+        return {};
       },
       // () => {
       //   return {

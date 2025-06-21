@@ -1,20 +1,13 @@
 import React, { useState } from 'react';
 import { Box } from '@mui/material';
 import RushComponent from './RushComponent.tsx'; // Adjust the path if Board is located elsewhere
-import Board from '../Board/Board';
+import ChessgroundApp from './../Board/Demo.tsx'; // Adjust the path if Board is located elsewhere
 import { Route, Routes, Navigate } from 'react-router-dom';
 
 function PuzzleView() {
   return (
     <Box p={2} maxWidth={1200} mx="auto">
-      <Box display="flex" gap={2}>
-        <Box flex={2}>
-          <Board />
-        </Box>
-        <Box flex={1}>
-          <RushComponent />
-        </Box>
-      </Box>
+      <RushComponent />
     </Box>
   );
 }

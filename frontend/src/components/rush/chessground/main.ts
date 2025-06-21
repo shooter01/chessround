@@ -3,6 +3,7 @@ import * as fen from './units/fen';
 import { Api } from 'chessground/api';
 import page from 'page';
 import { Unit, list } from './units/unit';
+import { PromotionCtrl } from './promotionCtrl';
 
 export function run(element: Element) {
   const patch = init([classModule, attributesModule, eventListenersModule]);
@@ -31,7 +32,13 @@ export function run(element: Element) {
     }
     document.body.dispatchEvent(new Event('chessground.resize'));
   }
-
+  const promotionCtrl = new PromotionCtrl(
+    (fn) => {
+      fn(cg);
+      return true;
+    },
+    () => redraw(),
+  );
   // drag-handlers
   let startX: number;
   let startZoom: number;
@@ -60,13 +67,78 @@ export function run(element: Element) {
     el.className = 'cg-wrap';
     cg = unit.run(el);
     window['cg'] = cg;
+
     if (currentZoom !== 100) setZoom(currentZoom);
   }
 
+  function renderPromotion() {
+    // 1) Моковые данные для теста
+    const promo = {
+      orig: 'd7',
+      dest: 'd8',
+      callback: (orig, dest, role) => {
+        console.log(`User picked ${role} for ${orig}->${dest}`);
+        // здесь можете вызвать promotionCtrl.finish(role) и cg.move(...)
+      },
+    };
+
+    // 2) порядок ролей при превращении
+    const roles = ['queen', 'rook', 'bishop', 'knight'];
+
+    // 3) куда позиционировать: если пешка доходит до 8-й — панель сверху ('top'), иначе снизу ('bottom')
+    const vert = promo.dest[1] === '8' ? 'top' : 'bottom';
+
+    // 4) по какому файлу (a..h) — в процентах от ширины
+    const fileIdx = 'abcdefgh'.indexOf(promo.dest[0]);
+    // const leftPct = fileIdx * 12.5; // бывает 0, 12.5, 25, …, 87.5
+    const leftPct = 0; // бывает 0, 12.5, 25, …, 87.5
+
+    return h(
+      `div#promotion-choice.${vert}`,
+      {
+        style: {
+          position: 'absolute',
+          width: '12.5%', // одна клетка
+          height: '50%', // 4 клетки
+          left: `${leftPct}%`,
+          [vert]: '0%',
+          pointerEvents: 'none',
+        },
+      },
+      roles.map((role, i) =>
+        h(
+          'square',
+          {
+            style: {
+              position: 'absolute',
+              width: '100%',
+              height: '12.5%',
+              top: `${i * 12.5}%`,
+              cursor: 'pointer',
+              pointerEvents: 'all',
+            },
+            on: {
+              click: (e) => {
+                e.stopPropagation();
+                promo.callback(promo.orig, promo.dest, role);
+                // если нужно — сброс состояния:
+                // promotionCtrl.reset();
+                // redraw();
+              },
+            },
+          },
+          // визуализация фигуры (зависит от вашего CSS .piece.queen.white и т.д.)
+          h(`piece.${role}.white`),
+        ),
+      ),
+    );
+  }
   function render() {
     return h('div#chessground-examples', [
       h('section.blue.merida', [
         h('div.cg-wrap-container', [
+          renderPromotion(),
+
           // сама доска
           h('div.cg-wrap', {
             hook: { insert: runUnit, postpatch: runUnit },

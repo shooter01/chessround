@@ -4,6 +4,7 @@ import './assets/chessground.css'; // Импортируем стили
 import './assets/theme.css'; // Импортируем стили
 import './assets/3d.css'; // Импортируем стили
 import './assets/examples.css'; // Импортируем стили
+import './assets/promotion.css'; // Импортируем стили
 
 const Board: React.FC = () => {
   useEffect(() => {

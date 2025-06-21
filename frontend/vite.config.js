@@ -5,14 +5,18 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: true, // слушаем на всех интерфейсах
+    host: true, // 0.0.0.0
     port: 3000,
-    allowedHosts: [
-      'localhost',
-      'dofrag.com', // без порта
-      'dofrag.com:3000', // с портом, если заходите так
-      '.dofrag.com', // любой поддомен
-    ],
+    // Разрешаем HMR-клиенту достучаться до вас из контейнера
+    hmr: {
+      host: 'localhost', // или ваш внешний хост
+      clientPort: 3000, // порт, на который проброшен 3000:3000
+    },
+    // enable polling so file changes are noticed inside Docker volume
+    watch: {
+      usePolling: true,
+      interval: 100,
+    },
+    allowedHosts: ['localhost', 'dofrag.com', 'dofrag.com:3000', '.dofrag.com'],
   },
-  // остальная конфигурация...
 });

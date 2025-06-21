@@ -5,9 +5,6 @@ import { Icon } from '@iconify/react';
 import puzzleIcon from '@iconify-icons/twemoji/puzzle-piece';
 import swordsIcon from '@iconify-icons/twemoji/crossed-swords';
 import trophyIcon from '@iconify-icons/twemoji/trophy';
-import boltIcon from '@iconify-icons/twemoji/high-voltage';
-import clockIcon from '@iconify-icons/twemoji/stopwatch';
-import skullIcon from '@iconify-icons/twemoji/skull-and-crossbones';
 
 type Mode = 'puzzle' | 'duel' | 'tournament';
 type Time = '3' | '5' | 'survival';
@@ -26,12 +23,6 @@ const modes: ItemConfig<Mode>[] = [
   { key: 'tournament', label: 'Tournament', icon: trophyIcon, path: 'tournaments' },
 ];
 
-const times: ItemConfig<Time>[] = [
-  { key: '3', label: '3 min', icon: boltIcon, path: 'puzzle/3' },
-  { key: '5', label: '5 min', icon: clockIcon, path: 'puzzle/5' },
-  { key: 'survival', label: 'Survival', icon: skullIcon, path: 'puzzle/survival' },
-];
-
 export default function PuzzleSelector() {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -39,16 +30,6 @@ export default function PuzzleSelector() {
 
   const [selMode, setSelMode] = useState<Mode>('puzzle');
   const [selTime, setSelTime] = useState<Time>('5');
-
-  // keep state in sync with URL
-  useEffect(() => {
-    const parts = pathname.replace(/^\/rush\/?/, '').split('/');
-    const [m, t] = parts;
-    if (['puzzle', 'duel', 'tournament'].includes(m)) {
-      setSelMode(m as Mode);
-      if (['3', '5', 'survival'].includes(t)) setSelTime(t as Time);
-    }
-  }, [pathname]);
 
   const itemSx = (active: boolean) => ({
     flex: 1,
@@ -93,28 +74,15 @@ export default function PuzzleSelector() {
         })}
       </Stack>
 
-      {/* Time icons row */}
-      <Stack direction="row" spacing={2} sx={{ mb: 4 }}>
-        {times.map((t) => {
-          const active = selTime === t.key;
-          return (
-            <Box key={t.key} onClick={() => navigate(t.path)} sx={itemSx(active)}>
-              <Icon icon={t.icon} width={80} height={80} />
-              <Typography sx={{ mt: 1, fontSize: 16, fontWeight: 700 }}>{t.label}</Typography>
-            </Box>
-          );
-        })}
-      </Stack>
-
-      <Typography variant="body1" sx={{ mb: 3, color: '#666' }}>
+      {/* <Typography variant="body1" sx={{ mb: 3, color: '#666' }}>
         {selMode === 'puzzle'
           ? `Solve puzzles in ${selTime === 'survival' ? 'Survival mode' : `${selTime} min`}`
           : selMode === 'duel'
             ? 'Challenge a friend!'
             : 'Join a tournament!'}
-      </Typography>
+      </Typography> */}
 
-      <Button
+      {/* <Button
         variant="contained"
         fullWidth
         sx={{ textTransform: 'none', py: 1.5 }}
@@ -130,7 +98,7 @@ export default function PuzzleSelector() {
         }}
       >
         Start
-      </Button>
+      </Button> */}
     </Box>
   );
 }

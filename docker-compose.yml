@@ -15,8 +15,8 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules # Исключаем node_modules из монтирования
-    depends_on:
-      - keycloak
+    # depends_on:
+    #   - keycloak
     command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"] # Запускаем Vite с указанием хоста
 
   backend:
@@ -35,30 +35,30 @@ services:
     networks:
       - keycloak-network
 
-  keycloak:
-    container_name: keycloak-round
-    image: quay.io/keycloak/keycloak:23.0.6
-    command: start
-    environment:
-      - KC_HOSTNAME=localhost
-      - KC_HOSTNAME_PORT=8080
-      - KC_HOSTNAME_STRICT_BACKCHANNEL=false
-      - KC_HOSTNAME_STRICT=false
-      - KC_HTTP_ENABLED=true
-      - KC_HOSTNAME_STRICT_HTTPS=false
-      - KC_HEALTH_ENABLED=true
-      - KEYCLOAK_ADMIN=admin
-      - KEYCLOAK_ADMIN_PASSWORD=admin
-      - KC_DB=postgres
-      - KC_DB_URL=jdbc:postgresql://db:5432/keycloak
-      - KC_DB_USERNAME=keycloak
-      - KC_DB_PASSWORD=password
-    depends_on:
-      - db
-    ports:
-      - "8080:8080"
-    networks:
-      - keycloak-network
+  # keycloak:
+  #   container_name: keycloak-round
+  #   image: quay.io/keycloak/keycloak:23.0.6
+  #   command: start
+  #   environment:
+  #     - KC_HOSTNAME=localhost
+  #     - KC_HOSTNAME_PORT=8080
+  #     - KC_HOSTNAME_STRICT_BACKCHANNEL=false
+  #     - KC_HOSTNAME_STRICT=false
+  #     - KC_HTTP_ENABLED=true
+  #     - KC_HOSTNAME_STRICT_HTTPS=false
+  #     - KC_HEALTH_ENABLED=true
+  #     - KEYCLOAK_ADMIN=admin
+  #     - KEYCLOAK_ADMIN_PASSWORD=admin
+  #     - KC_DB=postgres
+  #     - KC_DB_URL=jdbc:postgresql://db:5432/keycloak
+  #     - KC_DB_USERNAME=keycloak
+  #     - KC_DB_PASSWORD=password
+  #   depends_on:
+  #     - db
+  #   ports:
+  #     - "8080:8080"
+  #   networks:
+  #     - keycloak-network
 
 
   db:
