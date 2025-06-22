@@ -1,37 +1,22 @@
+// main.ts
 import { h, init, VNode, classModule, attributesModule, eventListenersModule } from 'snabbdom';
 import * as fen from './units/fen';
 import { Api } from 'chessground/api';
-import page from 'page';
-import { Unit, list } from './units/unit';
+import { Unit } from './units/unit';
 import { PromotionCtrl } from './promotionCtrl';
 
-export function run(element: Element) {
+export type Color = 'white' | 'black';
+
+export function run(
+  element: Element,
+  initialColor: Color = 'white',
+): { setColor: (c: Color) => void } {
   const patch = init([classModule, attributesModule, eventListenersModule]);
+  let vnode: VNode;
+  let cg: Api;
+  let unit: Unit;
 
-  const lastZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom')!) || 100;
-  const STORAGE_KEY = 'lichess-dev.cge.zoom';
-
-  let currentZoom = parseFloat(localStorage.getItem(STORAGE_KEY)!) || 100;
-
-  let unit: Unit, cg: Api, vnode: VNode;
-
-  function redraw() {
-    vnode = patch(vnode || element, render());
-  }
-
-  function setZoom(zoom: number) {
-    const width = (zoom / 100) * 320;
-    const el = document.querySelector('.cg-wrap') as HTMLElement;
-    if (el) {
-      el.style.width = `${width}px`;
-      el.style.height = `${width}px`;
-    }
-    const el3d = document.querySelector('.in3d .cg-wrap') as HTMLElement;
-    if (el3d) {
-      el3d.style.height = `${(width * 464.5) / 512}px`;
-    }
-    document.body.dispatchEvent(new Event('chessground.resize'));
-  }
+  // Контрол для звуков/сброса (по желанию)
   const promotionCtrl = new PromotionCtrl(
     (fn) => {
       fn(cg);
@@ -39,12 +24,16 @@ export function run(element: Element) {
     },
     () => redraw(),
   );
-  // drag-handlers
-  let startX: number;
-  let startZoom: number;
+
+  // Цвет фигур на панели превращения
+  let promoColor: Color = initialColor;
+
+  // Для зума
+  let startX = 0;
+  let startZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom')!) || 100;
+
   function onDrag(e: MouseEvent) {
     const dx = e.clientX - startX;
-    // 1px = 0.5% масштаб
     const newZoom = startZoom + dx * 0.5;
     setZoom(newZoom);
   }
@@ -52,54 +41,62 @@ export function run(element: Element) {
     window.removeEventListener('mousemove', onDrag);
     window.removeEventListener('mouseup', stopDrag);
     document.body.style.cursor = '';
+    // сохранить новый зум
+    startZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom')!) || startZoom;
   }
   function startDrag(e: MouseEvent) {
     e.preventDefault();
     startX = e.clientX;
-    startZoom = currentZoom;
     document.body.style.cursor = 'ew-resize';
     window.addEventListener('mousemove', onDrag);
     window.addEventListener('mouseup', stopDrag);
   }
 
-  function runUnit(vnode: VNode) {
-    const el = vnode.elm as HTMLElement;
-    el.className = 'cg-wrap';
-    cg = unit.run(el);
-    window['cg'] = cg;
-
-    if (currentZoom !== 100) setZoom(currentZoom);
+  function setZoom(zoom: number) {
+    // ограничим [50..200]%, например
+    const z = Math.max(50, Math.min(200, zoom));
+    localStorage.setItem('lichess-dev.cge.zoom', String(z));
+    const px = (z / 100) * 320;
+    const boardEl = document.querySelector('.cg-wrap') as HTMLElement;
+    if (boardEl) {
+      boardEl.style.width = `${px}px`;
+      boardEl.style.height = `${px}px`;
+    }
+    document.body.dispatchEvent(new Event('chessground.resize'));
   }
 
-  function renderPromotion() {
-    // 1) Моковые данные для теста
+  function redraw() {
+    vnode = patch(vnode || element, render());
+  }
+
+  // Инициализация chessground
+  function runUnit(v: VNode) {
+    const el = v.elm as HTMLElement;
+    el.className = 'cg-wrap';
+    cg = unit.run(el);
+  }
+
+  // Тестовый overlay превращения
+  function renderPromotion(): VNode | null {
     const promo = {
       orig: 'd7',
       dest: 'd8',
-      callback: (orig, dest, role) => {
-        console.log(`User picked ${role} for ${orig}->${dest}`);
-        // здесь можете вызвать promotionCtrl.finish(role) и cg.move(...)
+      callback: (_o: string, _d: string, role: string) => {
+        console.log(`Picked ${role}`);
       },
     };
-
-    // 2) порядок ролей при превращении
     const roles = ['queen', 'rook', 'bishop', 'knight'];
-
-    // 3) куда позиционировать: если пешка доходит до 8-й — панель сверху ('top'), иначе снизу ('bottom')
     const vert = promo.dest[1] === '8' ? 'top' : 'bottom';
-
-    // 4) по какому файлу (a..h) — в процентах от ширины
     const fileIdx = 'abcdefgh'.indexOf(promo.dest[0]);
-    // const leftPct = fileIdx * 12.5; // бывает 0, 12.5, 25, …, 87.5
-    const leftPct = 0; // бывает 0, 12.5, 25, …, 87.5
+    const leftPct = fileIdx * 12.5;
 
     return h(
       `div#promotion-choice.${vert}`,
       {
         style: {
           position: 'absolute',
-          width: '12.5%', // одна клетка
-          height: '50%', // 4 клетки
+          width: '12.5%',
+          height: '50%',
           left: `${leftPct}%`,
           [vert]: '0%',
           pointerEvents: 'none',
@@ -118,74 +115,61 @@ export function run(element: Element) {
               pointerEvents: 'all',
             },
             on: {
-              click: (e) => {
+              click: (e: MouseEvent) => {
                 e.stopPropagation();
                 promo.callback(promo.orig, promo.dest, role);
-                // если нужно — сброс состояния:
-                // promotionCtrl.reset();
-                // redraw();
               },
             },
           },
-          // визуализация фигуры (зависит от вашего CSS .piece.queen.white и т.д.)
-          h(`piece.${role}.white`),
+          h(`piece.${role}.${promoColor}`),
         ),
       ),
     );
   }
-  function render() {
-    return h('div#chessground-examples', [
-      h('section.blue.merida', [
-        h('div.cg-wrap-container', [
-          renderPromotion(),
 
-          // сама доска
+  // Собираем VNode-дерево
+  function render(): VNode {
+    return h('div#chessground-examples', [
+      h('section.blue.merida', { style: { position: 'relative', overflow: 'visible' } }, [
+        h('div.cg-wrap-container', { style: { position: 'relative', overflow: 'visible' } }, [
+          // 1) Сам board-контейнер, в который Chessground вставит доску:
           h('div.cg-wrap', {
             hook: { insert: runUnit, postpatch: runUnit },
           }),
 
-          // кнопка «Toggle orientation»
-          h(
-            'div.toggle-orient.flyout-btn',
-            {
-              on: {
-                click() {
-                  cg.toggleOrientation();
+          // 2) А теперь _рядом_ с доской_ рендерим оверлей превращения:
+          renderPromotion(),
+
+          // 3) Ваши кнопки (ориентация, зум и т.д.)
+          h('div.toggle-orient.flyout-btn', { on: { click: () => cg.toggleOrientation() } }, [
+            // Вставляем точно такой же SVG, как вы бы писали в чистом HTML
+            h(
+              'svg',
+              {
+                attrs: {
+                  width: '16',
+                  height: '16',
+                  viewBox: '0 0 24 24',
+                  fill: 'none',
+                  stroke: '#333',
+                  'stroke-width': '2',
+                  'stroke-linecap': 'round',
+                  'stroke-linejoin': 'round',
                 },
               },
-            },
-            [
-              // тут можно свою SVG-иконку, или FontAwesome
-              h(
-                'svg',
-                {
+              [
+                h('polyline', { attrs: { points: '23 4 23 10 17 10' } }),
+                h('polyline', { attrs: { points: '1 20 1 14 7 14' } }),
+                h('path', {
                   attrs: {
-                    width: '16',
-                    height: '16',
-                    viewBox: '0 0 24 24',
-                    fill: 'none',
-                    stroke: '#333',
-                    'stroke-width': '2',
-                    'stroke-linecap': 'round',
-                    'stroke-linejoin': 'round',
+                    d: 'M3.51 9a9 9 0 0114.13-3.36L23 10 M1 14l4.36 4.36A9 9 0 0020.49 15',
                   },
-                },
-                [
-                  // иконка «две стрелки вращения»
-                  h('polyline', { attrs: { points: '23 4 23 10 17 10' } }),
-                  h('polyline', { attrs: { points: '1 20 1 14 7 14' } }),
-                  h('path', {
-                    attrs: {
-                      d: 'M3.51 9a9 9 0 0114.13-3.36L23 10\n M1 14l4.36 4.36A9 9 0 0020.49 15',
-                    },
-                  }),
-                ],
-              ),
-            ],
-          ),
-
-          // хендл для зума
+                }),
+              ],
+            ),
+          ]),
           h('div.resize-handle.flyout-btn', { on: { mousedown: startDrag } }, [
+            // А тут — иконка «растянуть/сжать»
             h(
               'svg',
               {
@@ -208,20 +192,20 @@ export function run(element: Element) {
           ]),
         ]),
 
+        // подпись под доской
         h('p', unit.name),
-      ]),
-
-      h('control', [
-        // убираем старый инпут «Zoom» и кнопку,
-        // т.к. всё переехало во flyout
       ]),
     ]);
   }
 
-  // page({ click: false, popstate: false, dispatch: false, hashbang: true });
-  // page('/:id', (ctx) => {
+  // Старт
   unit = fen.autoSwitch;
   redraw();
-  // });
-  // page(location.hash.slice(2) || '/0');
+
+  return {
+    setColor(c: Color) {
+      promoColor = c;
+      redraw();
+    },
+  };
 }
