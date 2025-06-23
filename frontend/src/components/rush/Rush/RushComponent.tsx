@@ -35,6 +35,7 @@ import puzzles from './const';
 import CurrentPuzzle from './current/current';
 import { Chess, SQUARES, Color } from 'chess.js';
 import { parseUci, Move } from 'chessops';
+import { PromotionCtrl, WithGround } from '../chessground/promotionCtrl.ts';
 type Uci = string | undefined;
 type Key = string | undefined;
 
@@ -161,37 +162,31 @@ export default function PuzzleRush() {
   const theme = 'fork';
   const limit = 5;
   let moves = 0;
-  let promotion;
+
+  const withGround: WithGround = (f) => {
+    const g = window.cg as Api | undefined;
+    console.log(g?.getFen());
+
+    return g ? f(g) : undefined;
+  };
+  const [promoVisible, setPromoVisible] = useState(false);
+
   let currentPuzzle;
 
   const userMove = (orig: Key, dest: Key): void => {
     console.log(`User move: ${orig} to ${dest}`);
+    console.log(promotion.start(orig, dest, { submit: playUserMove }));
 
-    // if (!promotion.start(orig, dest, { submit: this.playUserMove })) playUserMove(orig, dest);
+    if (!promotion.start(orig, dest, { submit: playUserMove })) playUserMove(orig, dest);
   };
 
   const playUserMove = (orig: Key, dest: Key, promotion?: Role): void =>
     playUci(`${orig}${dest}${promotion ? (promotion === 'knight' ? 'n' : promotion[0]) : ''}`);
 
   const playUci = (uci: Uci): void => {
-    // const now = getNow();
-    // const puzzle = this.run.current;
-    // if (puzzle.startAt + config.minFirstMoveTime > now) console.log('reverted!');
-    // else {
-    moves++;
-    promotion.cancel();
-    const pos = puzzle.position();
-    pos.play(parseUci(uci)!);
-    if (pos.isCheckmate() || uci === puzzle.expectedMove()) {
-      puzzle.moveIndex++;
-      // this.socketSend('racerScore', this.localScore);
-      if (puzzle.isOver()) {
-        if (!this.incPuzzle(true)) this.end();
-      } else {
-        puzzle.moveIndex++;
-      }
-      // this.run.current.playSound(puzzle);
-    }
+    console.log(`Playing UCI: ${uci}`);
+    return;
+
     // this.redraw();
     // this.redrawQuick();
     // this.redrawSlow();
@@ -335,6 +330,30 @@ export default function PuzzleRush() {
   };
 
   // useEffect(() => {
+  //   setTimeout(() => {
+  //     // if (window.cg !== undefined) {
+  //     const fen = '7k/P7/8/8/8/8/4K3/8 w - - 0 1';
+  //     const chess = new Chess(fen);
+  //     window.cg.set({
+  //       fen,
+  //       turnColor: toColor(chess),
+  //       movable: {
+  //         color: toColor(chess),
+  //         dests: toDests(chess),
+  //       },
+  //       events: {
+  //         move: userMove,
+  //       },
+  //     });
+  //     // }
+  //   }, 1000);
+  //   setTimeout(() => {
+  //     setPromoVisible(true);
+  //   }, 2000);
+  //   // инициализируем chessground
+  // }, []);
+
+  // useEffect(() => {
   //   if (window.cg !== undefined) {
   //     cg.set({
   //       fen: '8/1N3k2/6p1/8/2P3P1/pr6/R5K1/8 w - - 1 56',
@@ -348,6 +367,20 @@ export default function PuzzleRush() {
   //   }
   // }, []);
 
+  const [color, setColor] = useState<Color>('black');
+
+  // useEffect(() => {
+  //   // каждые 2 секунды переключаем цвет и видимость
+  //   const id = window.setInterval(() => {
+  //     setColor((c) => (c === 'white' ? 'white' : 'black'));
+  //     setPromoVisible((v) => !v);
+  //   }, 2000);
+
+  //   return () => {
+  //     window.clearInterval(id);
+  //   };
+  // }, []);
+
   return (
     <Box display="flex" gap={2}>
       <div id="controls">
@@ -355,7 +388,10 @@ export default function PuzzleRush() {
         <button id="next">Next Move</button>
       </div>
       <Box flex={2}>
-        <Board position={position} />
+        <h2>
+          Цвет: {color}, прево­щение: {promoVisible ? 'ON' : 'OFF'}
+        </h2>
+        <Board color={color} promoVisible={promoVisible} />
       </Box>
       <Box flex={1}>
         <Box

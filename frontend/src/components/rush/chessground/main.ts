@@ -3,31 +3,40 @@ import { h, init, VNode, classModule, attributesModule, eventListenersModule } f
 import * as fen from './units/fen';
 import { Api } from 'chessground/api';
 import { Unit } from './units/unit';
-import { PromotionCtrl } from './promotionCtrl';
-
+import { PromotionCtrl, WithGround } from './promotionCtrl';
+import { initialGround } from './ground.ts';
+// import { withGround } from './utilPromotion';
 export type Color = 'white' | 'black';
+
+const withGround: WithGround = (f) => {
+  const g = window.cg as Api | undefined;
+  console.log(g?.getFen());
+
+  return g ? f(g) : undefined;
+};
 
 export function run(
   element: Element,
   initialColor: Color = 'white',
-): { setColor: (c: Color) => void } {
+): { setColor: (c: Color) => void; setShowPromotion: (show: boolean) => void } {
   const patch = init([classModule, attributesModule, eventListenersModule]);
   let vnode: VNode;
   let cg: Api;
   let unit: Unit;
 
   // Контрол для звуков/сброса (по желанию)
-  const promotionCtrl = new PromotionCtrl(
-    (fn) => {
-      fn(cg);
-      return true;
-    },
-    () => redraw(),
-  );
+  // const promotionCtrl = new PromotionCtrl(
+  //   (fn) => {
+  //     fn(cg);
+  //     return true;
+  //   },
+  //   () => redraw(),
+  // );
 
   // Цвет фигур на панели превращения
   let promoColor: Color = initialColor;
-
+  // Видимость панели превращения
+  let showPromo = false;
   // Для зума
   let startX = 0;
   let startZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom')!) || 100;
@@ -75,57 +84,61 @@ export function run(
     el.className = 'cg-wrap';
     cg = unit.run(el);
   }
+  const setGround = () => withGround((g) => g.set(initialGround(this)));
+
+  window.promotion = new PromotionCtrl(withGround, setGround, redraw);
 
   // Тестовый overlay превращения
-  function renderPromotion(): VNode | null {
-    const promo = {
-      orig: 'd7',
-      dest: 'd8',
-      callback: (_o: string, _d: string, role: string) => {
-        console.log(`Picked ${role}`);
-      },
-    };
-    const roles = ['queen', 'rook', 'bishop', 'knight'];
-    const vert = promo.dest[1] === '8' ? 'top' : 'bottom';
-    const fileIdx = 'abcdefgh'.indexOf(promo.dest[0]);
-    const leftPct = fileIdx * 12.5;
+  // function renderPromotion(): VNode | null {
+  //   if (!showPromo) return null; // <-- проверяем флаг!
+  //   const promo = {
+  //     orig: 'd7',
+  //     dest: 'd8',
+  //     callback: (_o: string, _d: string, role: string) => {
+  //       console.log(`Picked ${role}`);
+  //     },
+  //   };
+  //   const roles = ['queen', 'rook', 'bishop', 'knight'];
+  //   const vert = promo.dest[1] === '8' ? 'top' : 'bottom';
+  //   const fileIdx = 'abcdefgh'.indexOf(promo.dest[0]);
+  //   const leftPct = fileIdx * 12.5;
 
-    return h(
-      `div#promotion-choice.${vert}`,
-      {
-        style: {
-          position: 'absolute',
-          width: '12.5%',
-          height: '50%',
-          left: `${leftPct}%`,
-          [vert]: '0%',
-          pointerEvents: 'none',
-        },
-      },
-      roles.map((role, i) =>
-        h(
-          'square',
-          {
-            style: {
-              position: 'absolute',
-              width: '100%',
-              height: '12.5%',
-              top: `${i * 12.5}%`,
-              cursor: 'pointer',
-              pointerEvents: 'all',
-            },
-            on: {
-              click: (e: MouseEvent) => {
-                e.stopPropagation();
-                promo.callback(promo.orig, promo.dest, role);
-              },
-            },
-          },
-          h(`piece.${role}.${promoColor}`),
-        ),
-      ),
-    );
-  }
+  //   return h(
+  //     `div#promotion-choice.${vert}`,
+  //     {
+  //       style: {
+  //         position: 'absolute',
+  //         width: '12.5%',
+  //         height: '50%',
+  //         left: `${leftPct}%`,
+  //         [vert]: '0%',
+  //         pointerEvents: 'none',
+  //       },
+  //     },
+  //     roles.map((role, i) =>
+  //       h(
+  //         'square',
+  //         {
+  //           style: {
+  //             position: 'absolute',
+  //             width: '100%',
+  //             height: '12.5%',
+  //             top: `${i * 12.5}%`,
+  //             cursor: 'pointer',
+  //             pointerEvents: 'all',
+  //           },
+  //           on: {
+  //             click: (e: MouseEvent) => {
+  //               e.stopPropagation();
+  //               promo.callback(promo.orig, promo.dest, role);
+  //             },
+  //           },
+  //         },
+  //         h(`piece.${role}.${promoColor}`),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   // Собираем VNode-дерево
   function render(): VNode {
@@ -138,7 +151,7 @@ export function run(
           }),
 
           // 2) А теперь _рядом_ с доской_ рендерим оверлей превращения:
-          renderPromotion(),
+          window.promotion.view(),
 
           // 3) Ваши кнопки (ориентация, зум и т.д.)
           h('div.toggle-orient.flyout-btn', { on: { click: () => cg.toggleOrientation() } }, [
@@ -205,6 +218,10 @@ export function run(
   return {
     setColor(c: Color) {
       promoColor = c;
+      redraw();
+    },
+    setShowPromotion(show: boolean) {
+      showPromo = show;
       redraw();
     },
   };

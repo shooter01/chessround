@@ -10,30 +10,37 @@ import './assets/3d.css'; // Импортируем стили
 import './assets/examples.css'; // Импортируем стили
 import './assets/promotion.css'; // Импортируем стили
 
-const Board: React.FC = () => {
-  const [color, setColor] = useState<Color>('white');
-  const runnerRef = useRef<{ setColor: (c: Color) => void }>();
+interface BoardProps {
+  color: Color;
+  promoVisible: boolean;
+}
 
-  // 1) при монтировании создаём доску
+const Board: React.FC<BoardProps> = ({ color, promoVisible }) => {
+  // const runnerRef = useRef<ReturnType<typeof run>>();
+  // run(document.getElementById('chessground-examples'), color);
+  // // 1) при монтировании создаём доску
   useEffect(() => {
     const el = document.getElementById('chessground-examples');
     if (el) {
-      runnerRef.current = run(el, color);
+      run(el, color);
+      // сразу установить видимость прево­щения, если нужно
+      // runnerRef.current.setShowPromotion(promoVisible);
     }
-  }, []); // один раз
-
-  // 2) автоматически меняем цвет оверлея при изменении state
-  useEffect(() => {
-    runnerRef.current?.setColor(color);
-  }, [color]);
-
-  // демо: переключаем цвет через 2 секунды
-  useEffect(() => {
-    const t = setTimeout(() => setColor('black'), 2000);
-    return () => clearTimeout(t);
   }, []);
 
-  return <div id="chessground-examples" />;
+  // // 2) при изменении цвета вызываем setColor()
+  // useEffect(() => {
+  //   runnerRef.current?.setColor(color);
+  // }, [color]);
+
+  // // 3) при изменении флага promoVisible вызываем setShowPromotion()
+  // useEffect(() => {
+  //   runnerRef.current?.setShowPromotion(promoVisible);
+  // }, [promoVisible]);
+
+  return (
+    <div id="chessground-examples" style={{ width: 320, height: 320, position: 'relative' }} />
+  );
 };
 
 export default Board;
