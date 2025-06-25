@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { useLocation } from 'react-router-dom';
 import { Icon } from '@iconify/react';
-import { IconCounter } from './components/IconCounter.jsx';
+import { IconCounter } from './components/IconCounter/IconCounter.jsx';
 import Countdown from 'react-countdown';
 
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
@@ -33,6 +33,7 @@ import Board from '../Board/Board';
 import CountdownOverlay from './components/StartCountDown/CountdownOverlay.tsx';
 import { Api } from 'chessground/api';
 import { toColor, toDests, aiPlay, playOtherSide } from './util.ts';
+import './styles.css';
 
 // import puzzles from './const';
 import CurrentPuzzle from './current/current';
@@ -40,6 +41,7 @@ import { Chess, SQUARES, Color } from 'chess.js';
 import { parseUci, Move } from 'chessops';
 import { PromotionCtrl, WithGround } from '../chessground/promotionCtrl.ts';
 import Timer from './components/Timer/Timer.jsx';
+import ResultCard from './components/ResultCard/ResultCard.jsx';
 type Uci = string | undefined;
 type Key = string | undefined;
 window.chess = new Chess();
@@ -59,6 +61,14 @@ window.chess = new Chess();
 // export function toColor(chess: Chess): Color {
 //   return chess.turn() === 'w' ? 'white' : 'black';
 // }
+
+const data = [
+  { ok: true, value: 156 },
+  { ok: true, value: 203 },
+  { ok: true, value: 284 },
+  /* … ваш массив … */
+  { ok: false, value: 2338 },
+];
 
 if (!window.site) window.site = {} as Site;
 if (!window.site.load)
@@ -231,6 +241,7 @@ export default function PuzzleRush() {
 
   window.handleStart = async () => {
     window.currentPuzzle = new CurrentPuzzle(puzzlesCounter, puzzles[puzzlesCounter]);
+    setShowResults(false);
 
     window.chess.load(puzzles[puzzlesCounter].fen);
     // window.chess.move(currentPuzzle.expectedMove());
@@ -260,6 +271,7 @@ export default function PuzzleRush() {
       });
       currentPuzzle.moveIndex++;
     }, 1000);
+    setShowCountdown(true);
     setIsStarted(true);
     countdownRef.current?.stop();
     setTimeout(() => {
@@ -307,6 +319,7 @@ export default function PuzzleRush() {
   // }, []);
 
   const [color, setColor] = useState<Color>('black');
+  const [showResults, setShowResults] = useState<boolean>(false);
 
   // useEffect(() => {
   //   // каждые 2 секунды переключаем цвет и видимость
@@ -321,7 +334,7 @@ export default function PuzzleRush() {
   // }, []);
   console.log(isStarted);
   const countdownRef = useRef<Countdown>(null);
-  const [showCountdown, setShowCountdown] = useState(true);
+  const [showCountdown, setShowCountdown] = useState(false);
 
   return (
     <Box display="flex" gap={2}>
@@ -331,6 +344,23 @@ export default function PuzzleRush() {
         </h2>
         <Board color={color} promoVisible={promoVisible} />
         {showCountdown && <CountdownOverlay onComplete={() => setShowCountdown(false)} />}
+        {showResults && (
+          <div className="rcard-overlay">
+            <ResultCard
+              mood="Good!"
+              result={0}
+              today={1}
+              allTime={23}
+              longestStreak={0}
+              onPlayAgain={() => {
+                handleStart();
+              }}
+              onAnotherMode={() => {
+                navigate('/');
+              }}
+            />
+          </div>
+        )}
       </Box>
       <Box flex={1}>
         <Box
@@ -379,145 +409,161 @@ export default function PuzzleRush() {
               </Typography>
             </Stack>
           </Stack>
-
-          {/* Main tabs */}
-          <Tabs
-            value={mainTab}
-            onChange={handleMainTab}
-            textColor="primary"
-            indicatorColor="primary"
-            sx={{ mb: 1 }}
-          >
-            <Tab label="Play" value="play" />
-            <Tab label="Leaderboard" value="leaderboard" />
-          </Tabs>
-
-          {mainTab === 'play' && (
+          {isStarted ? (
             <>
-              {/* Time icons row */}
-              <Stack direction="row" spacing={2} sx={{ mb: 4 }}>
-                {times.map((t) => {
-                  const active = selTime === t.key;
-                  return (
-                    <Box key={t.key} onClick={() => navigate(t.path)} sx={itemSx(active)}>
-                      <Icon icon={t.icon} width={80} height={80} />
-                      <Typography sx={{ mt: 1, fontSize: 16, fontWeight: 700 }}>
-                        {t.label}
-                      </Typography>
-                    </Box>
-                  );
-                })}
-              </Stack>
               <Box sx={{ textAlign: 'center', mt: 4 }}>
-                <Button
-                  variant="contained"
-                  size="large"
-                  color="primary"
-                  onClick={handleStart}
-                  disabled={loading}
-                >
-                  {loading ? <CircularProgress size={24} /> : 'Start Puzzle Rush'}
-                </Button>
-              </Box>
-              <Box sx={{ textAlign: 'center', mt: 4 }}>
-                {isStarted ? (
+                {isStarted && !showCountdown ? (
                   <Timer
                     countdownRef={countdownRef}
-                    durationMs={10000} // 10 секунд
+                    durationMs={1000} // 10 секунд
                     onStart={() => console.log('🔔 Timer has started')}
-                    onComplete={() => console.log('🏁 Timer has finished')}
+                    onComplete={() => {
+                      console.log('🏁 Timer has finished');
+                      setShowResults(true);
+                      setIsStarted(false);
+                    }}
                   />
                 ) : null}
               </Box>
-            </>
-          )}
 
-          {mainTab === 'leaderboard' && (
+              <Box sx={{ textAlign: 'center', mt: 4 }}>
+                <IconCounter items={data} columns={8} />
+              </Box>
+            </>
+          ) : (
             <>
-              {/* Sub-tabs */}
+              {/* Main tabs */}
               <Tabs
-                value={boardTab}
-                onChange={handleBoardTab}
+                value={mainTab}
+                onChange={handleMainTab}
                 textColor="primary"
                 indicatorColor="primary"
-                sx={{ mt: 1 }}
+                sx={{ mb: 1 }}
               >
-                <Tab label="Global" value="global" />
-                <Tab label="Friends" value="friends" />
-                <Tab label="Personal" value="personal" />
+                <Tab label="Play" value="play" />
+                <Tab label="Leaderboard" value="leaderboard" />
               </Tabs>
 
-              {/* Period select */}
-              <FormControl size="small" sx={{ mt: 1, mb: 1, minWidth: 120 }}>
-                <InputLabel>All</InputLabel>
-                <Select value={range} label="All" onChange={handleRange}>
-                  <MenuItem value="daily">Daily</MenuItem>
-                  <MenuItem value="weekly">Weekly</MenuItem>
-                  <MenuItem value="all">All</MenuItem>
-                </Select>
-              </FormControl>
+              {mainTab === 'play' && (
+                <>
+                  {/* Time icons row */}
+                  <Stack direction="row" spacing={2} sx={{ mb: 4 }}>
+                    {times.map((t) => {
+                      const active = selTime === t.key;
+                      return (
+                        <Box key={t.key} onClick={() => navigate(t.path)} sx={itemSx(active)}>
+                          <Icon icon={t.icon} width={80} height={80} />
+                          <Typography sx={{ mt: 1, fontSize: 16, fontWeight: 700 }}>
+                            {t.label}
+                          </Typography>
+                        </Box>
+                      );
+                    })}
+                  </Stack>
 
-              {/* Leaderboard list */}
-              <Paper
-                variant="outlined"
-                sx={{
-                  bgcolor: '#fff',
-                  borderColor: '#ddd',
-                  borderRadius: 2,
-                  maxHeight: 350,
-                  overflowY: 'auto',
-                }}
-              >
-                {mockPlayers
-                  .filter((_, i) => {
-                    if (boardTab === 'friends') return i % 2 === 0;
-                    if (boardTab === 'personal') return i < 5;
-                    return true;
-                  })
-                  .map((p) => (
-                    <Stack
-                      key={p.rank}
-                      direction="row"
-                      alignItems="center"
-                      justifyContent="space-between"
-                      px={2}
-                      py={1}
-                      sx={{
-                        '&:nth-of-type(odd)': { bgcolor: '#fafafa' },
-                      }}
+                  <Box sx={{ textAlign: 'center', mt: 4 }}>
+                    <Button
+                      variant="contained"
+                      size="large"
+                      color="primary"
+                      onClick={handleStart}
+                      disabled={loading}
                     >
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <Typography sx={{ width: 24 }}>#{p.rank}</Typography>
-                        <Avatar src={p.avatarUrl} sx={{ width: 32, height: 32, bgcolor: '#ccc' }} />
-                        {p.title && (
-                          <Box
-                            sx={{
-                              fontSize: 12,
-                              px: 0.5,
-                              py: 0.2,
-                              border: '1px solid #aaa',
-                              borderRadius: '4px',
-                            }}
-                          >
-                            {p.title}
-                          </Box>
-                        )}
-                        <Typography sx={{ color: '#1976d2', fontWeight: 500 }}>
-                          {p.username}
-                        </Typography>
-                        <Box component="span">{p.flag}</Box>
-                        {p.badges?.map((b, i) => (
-                          <Box key={i} component="span" sx={{ ml: 0.5 }}>
-                            {b}
-                          </Box>
-                        ))}
-                      </Stack>
-                      <Typography sx={{ fontWeight: 600 }}>{p.score}</Typography>
-                      <IconCounter count={1000} />
-                      <IconCounter count={1000} variant="error" />
-                    </Stack>
-                  ))}
-              </Paper>
+                      {loading ? <CircularProgress size={24} /> : 'Start Puzzle Rush'}
+                    </Button>
+                  </Box>
+                </>
+              )}
+
+              {mainTab === 'leaderboard' && (
+                <>
+                  {/* Sub-tabs */}
+                  <Tabs
+                    value={boardTab}
+                    onChange={handleBoardTab}
+                    textColor="primary"
+                    indicatorColor="primary"
+                    sx={{ mt: 1 }}
+                  >
+                    <Tab label="Global" value="global" />
+                    <Tab label="Friends" value="friends" />
+                    <Tab label="Personal" value="personal" />
+                  </Tabs>
+
+                  {/* Period select */}
+                  <FormControl size="small" sx={{ mt: 1, mb: 1, minWidth: 120 }}>
+                    <InputLabel>All</InputLabel>
+                    <Select value={range} label="All" onChange={handleRange}>
+                      <MenuItem value="daily">Daily</MenuItem>
+                      <MenuItem value="weekly">Weekly</MenuItem>
+                      <MenuItem value="all">All</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  {/* Leaderboard list */}
+                  <Paper
+                    variant="outlined"
+                    sx={{
+                      bgcolor: '#fff',
+                      borderColor: '#ddd',
+                      borderRadius: 2,
+                      maxHeight: 350,
+                      overflowY: 'auto',
+                    }}
+                  >
+                    {mockPlayers
+                      .filter((_, i) => {
+                        if (boardTab === 'friends') return i % 2 === 0;
+                        if (boardTab === 'personal') return i < 5;
+                        return true;
+                      })
+                      .map((p) => (
+                        <Stack
+                          key={p.rank}
+                          direction="row"
+                          alignItems="center"
+                          justifyContent="space-between"
+                          px={2}
+                          py={1}
+                          sx={{
+                            '&:nth-of-type(odd)': { bgcolor: '#fafafa' },
+                          }}
+                        >
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Typography sx={{ width: 24 }}>#{p.rank}</Typography>
+                            <Avatar
+                              src={p.avatarUrl}
+                              sx={{ width: 32, height: 32, bgcolor: '#ccc' }}
+                            />
+                            {p.title && (
+                              <Box
+                                sx={{
+                                  fontSize: 12,
+                                  px: 0.5,
+                                  py: 0.2,
+                                  border: '1px solid #aaa',
+                                  borderRadius: '4px',
+                                }}
+                              >
+                                {p.title}
+                              </Box>
+                            )}
+                            <Typography sx={{ color: '#1976d2', fontWeight: 500 }}>
+                              {p.username}
+                            </Typography>
+                            <Box component="span">{p.flag}</Box>
+                            {p.badges?.map((b, i) => (
+                              <Box key={i} component="span" sx={{ ml: 0.5 }}>
+                                {b}
+                              </Box>
+                            ))}
+                          </Stack>
+                          <Typography sx={{ fontWeight: 600 }}>{p.score}</Typography>
+                        </Stack>
+                      ))}
+                  </Paper>
+                </>
+              )}
             </>
           )}
         </Box>

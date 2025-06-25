@@ -1,0 +1,66 @@
+.stats-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.stats-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: none;
+  cursor: pointer;
+
+}
+
+.stats-item__icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  font-size: 1.2em;
+  color: #fff;
+}
+
+.stats-item--success .stats-item__icon-box {
+  background-color: #28a745;
+}
+
+.stats-item--error .stats-item__icon-box {
+  background-color: #dc3545;
+}
+
+/* Ссылка-цифра */
+.stats-item__link {
+  font-weight: 900;        /* очень жирный */
+  font-size: 0.9rem;
+  line-height: 1;
+  text-decoration: none;   /* убрать подчёркивание */
+  color: inherit;          /* той же окраски, что и иконка */
+}
+
+/* Опционально при hover */
+.stats-item__link:hover {
+  text-decoration: underline;
+}
+/* добавляем цвет текста на контейнер */
+.stats-item--success {
+  color: #28a745;
+}
+
+.stats-item--error {
+  color: #dc3545;
+}
+
+/* ссылка наследует цвет контейнера */
+.stats-item__link {
+  font-weight: 900;
+  font-size: 0.9rem;
+  line-height: 1;
+  text-decoration: none;
+  color: inherit;
+}
+
+.stats-item__link:hover {
+  text-decoration: underline;
+}

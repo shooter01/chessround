@@ -1,0 +1,142 @@
+:root {
+  /* ваши переменные */
+  --primary: #28a745;
+  --primary-dark: #1f8c3a;
+  --bg-card: #ffffff;
+  --text-dark: #222222;
+  --text-light: #666666;
+  --divider: #e0e0e0;
+  --radius: 12px;
+  --shadow-dark: rgba(0,0,0,0.15);
+}
+
+/* сама карточка — жёсткий, белый фон, без backdrop-filter! */
+.rcard-modern {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px var(--shadow-dark);
+  width: 340px;
+  max-width: 90%;
+  overflow: hidden;
+
+  /* анимация появления */
+  transform: translateY(20px);
+  opacity: 0;
+  animation: slideIn 0.4s ease-out forwards;
+  font-family: 'Segoe UI', sans-serif;
+  color: var(--text-dark);
+}
+
+/* убираем любой blur или прозрачность внутри карточки */
+.rcard-modern,
+.rcard-modern * {
+  backdrop-filter: none !important;
+}
+
+/* повторяем анимацию */
+@keyframes slideIn {
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* HEADER */
+.rcard-modern__header {
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  padding: 16px;
+  text-align: center;
+}
+.rcard-modern__mood {
+  margin: 0;
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* BODY */
+.rcard-modern__body {
+  padding: 20px;
+  background: var(--bg-card);
+}
+.rcard-modern__label {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.rcard-modern__result {
+  margin: 8px 0 0;
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-dark);
+  text-align: center;
+}
+.rcard-modern__divider {
+  height: 1px;
+  background: var(--divider);
+  margin: 20px 0;
+}
+
+/* STATS */
+.rcard-modern__stats {
+  display: flex;
+  justify-content: space-around;
+  gap: 12px;
+}
+.rcard-modern__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.rcard-modern__stat-icon {
+  font-size: 1.4rem;
+  color: var(--primary);
+  margin-bottom: 6px;
+  transition: transform 0.3s;
+}
+.rcard-modern__stat:hover .rcard-modern__stat-icon {
+  transform: translateY(-4px) scale(1.1);
+}
+.rcard-modern__stat-value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+.rcard-modern__stat-label {
+  font-size: 0.7rem;
+  color: var(--text-light);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* BUTTONS */
+.rcard-modern__btn {
+  width: 100%;
+  padding: 12px 0;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.1s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  margin-bottom: 12px;
+}
+.rcard-modern__btn:active {
+  transform: scale(0.98);
+}
+.rcard-modern__btn--primary {
+  background: var(--primary);
+  color: #fff;
+}
+.rcard-modern__btn--secondary {
+  background: #f5f5f5;
+  color: var(--text-dark);
+}
