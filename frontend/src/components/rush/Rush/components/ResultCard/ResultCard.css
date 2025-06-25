@@ -140,3 +140,42 @@
   background: #f5f5f5;
   color: var(--text-dark);
 }
+/* Обёртка, чтобы выровнять и отступить */
+.rcard-modern__streak-wrapper {
+  margin: 0 auto 20px;
+  width: 80%; /* или 100% по желанию */
+}
+
+/* Сама таблица */
+.rcard-modern__streak-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Ячейки таблицы */
+.rcard-modern__streak-table td {
+  padding: 8px;
+  border: 1px solid var(--divider);
+  font-size: 0.9rem;
+}
+
+/* Иконка в первой ячейке */
+.rcard-modern__streak-icon-cell {
+  width: 24px;
+  text-align: center;
+  color: var(--primary);
+}
+
+/* Лейбл */
+.rcard-modern__streak-label-cell {
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Значение */
+.rcard-modern__streak-value-cell {
+  text-align: right;
+  font-weight: 600;
+  color: var(--text-dark);
+}
