@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Box,
   IconButton,
@@ -18,6 +18,8 @@ import {
 } from '@mui/material';
 import { useLocation } from 'react-router-dom';
 import { Icon } from '@iconify/react';
+import { IconCounter } from './components/IconCounter.jsx';
+import Countdown from 'react-countdown';
 
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ExtensionIcon from '@mui/icons-material/Extension';
@@ -28,17 +30,19 @@ import boltIcon from '@iconify-icons/twemoji/high-voltage';
 import clockIcon from '@iconify-icons/twemoji/stopwatch';
 import skullIcon from '@iconify-icons/twemoji/skull-and-crossbones';
 import Board from '../Board/Board';
+import CountdownOverlay from './components/StartCountDown/CountdownOverlay.tsx';
 import { Api } from 'chessground/api';
 import { toColor, toDests, aiPlay, playOtherSide } from './util.ts';
 
-import puzzles from './const';
+// import puzzles from './const';
 import CurrentPuzzle from './current/current';
 import { Chess, SQUARES, Color } from 'chess.js';
 import { parseUci, Move } from 'chessops';
 import { PromotionCtrl, WithGround } from '../chessground/promotionCtrl.ts';
+import Timer from './components/Timer/Timer.jsx';
 type Uci = string | undefined;
 type Key = string | undefined;
-
+window.chess = new Chess();
 // export function toDests(chess: Chess): Map<Key, Key[]> {
 //   const dests = new Map();
 //   SQUARES.forEach((s) => {
@@ -109,6 +113,33 @@ interface Puzzle {
   theme: string;
 }
 
+const puzzles = [
+  {
+    puzzle_id: '001w5',
+    fen: '1rb2rk1/q5P1/4p2p/3p3p/3P1P2/2P5/2QK3P/3R2R1 b - - 0 29',
+    moves: 'f8f7 c2h7 g8h7 g7g8q',
+    rating: 1049,
+    rating_deviation: 80,
+    popularity: 85,
+    nb_plays: 209,
+    themes: 'advancedPawn attraction mate mateIn2 middlegame promotion short',
+    game_url: 'https://lichess.org/0e1vxAEn/black#58',
+  },
+  {
+    puzzle_id: '004LZ',
+    fen: '8/7R/5p2/p7/7P/2p5/3k2r1/1K2N3 w - - 3 48',
+    moves: 'e1g2 c3c2 b1a2 c2c1q h7d7 d2e2',
+    rating: 1182,
+    rating_deviation: 77,
+    popularity: 93,
+    nb_plays: 2032,
+    themes: 'advancedPawn crushing defensiveMove deflection endgame long promotion',
+    game_url: 'https://lichess.org/drahwNdj#95',
+  },
+];
+window.puzzlesCounter = 0;
+window.currentPuzzle;
+// window.currentMoveCounter = 0;
 export default function PuzzleRush() {
   const navigate = useNavigate();
   const [mainTab, setMainTab] = useState<'play' | 'leaderboard'>('play');
@@ -143,18 +174,19 @@ export default function PuzzleRush() {
   const handleRange = (e: SelectChangeEvent) => setRange(e.target.value as any);
   const [selTime, setSelTime] = useState<Time>('5');
   // keep state in sync with URL
-  useEffect(() => {
-    const parts = pathname.replace(/^\/rush\/?/, '').split('/');
-    const [m, t] = parts;
-    if (['puzzle', 'duel', 'tournament'].includes(m)) {
-      setSelMode(m as Mode);
-      if (['3', '5', 'survival'].includes(t)) setSelTime(t as Time);
-    }
-  }, [pathname]);
+  // useEffect(() => {
+  //   const parts = pathname.replace(/^\/rush\/?/, '').split('/');
+  //   const [m, t] = parts;
+  //   if (['puzzle', 'duel', 'tournament'].includes(m)) {
+  //     setSelMode(m as Mode);
+  //     if (['3', '5', 'survival'].includes(t)) setSelTime(t as Time);
+  //   }
+  // }, [pathname]);
 
   // стейты для ответа
-  const [puzzles, setPuzzles] = useState<Puzzle[] | null>(null);
+  // const [puzzles, setPuzzles] = useState<Puzzle[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isStarted, setIsStarted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Параметры запроса – можно взять из селектора, URL, контекста…
@@ -171,162 +203,69 @@ export default function PuzzleRush() {
   };
   const [promoVisible, setPromoVisible] = useState(false);
 
-  let currentPuzzle;
+  // const userMove = (orig: Key, dest: Key): void => {
+  //   console.log(`User move: ${orig} to ${dest}`);
+  //   console.log(promotion.start(orig, dest, { submit: playUserMove }));
 
-  const userMove = (orig: Key, dest: Key): void => {
-    console.log(`User move: ${orig} to ${dest}`);
-    console.log(promotion.start(orig, dest, { submit: playUserMove }));
+  //   if (!promotion.start(orig, dest, { submit: playUserMove })) playUserMove(orig, dest);
+  // };
 
-    if (!promotion.start(orig, dest, { submit: playUserMove })) playUserMove(orig, dest);
-  };
+  // const playUserMove = (orig: Key, dest: Key, promotion?: Role): void =>
+  //   playUci(`${orig}${dest}${promotion ? (promotion === 'knight' ? 'n' : promotion[0]) : ''}`);
 
-  const playUserMove = (orig: Key, dest: Key, promotion?: Role): void =>
-    playUci(`${orig}${dest}${promotion ? (promotion === 'knight' ? 'n' : promotion[0]) : ''}`);
+  // const playUci = (uci: Uci): void => {
+  //   console.log(`Playing UCI: ${uci}`);
+  //   return;
 
-  const playUci = (uci: Uci): void => {
-    console.log(`Playing UCI: ${uci}`);
-    return;
+  // this.redraw();
+  // this.redrawQuick();
+  // this.redrawSlow();
+  // }
+  // this.setGround();
+  // if (this.run.current.moveIndex < 0) {
+  //   this.run.current.moveIndex = 0;
+  //   this.setGround();
+  // }
+  // pubsub.emit('ply', this.run.moves);
+  // }
 
-    // this.redraw();
-    // this.redrawQuick();
-    // this.redrawSlow();
-    // }
-    // this.setGround();
-    // if (this.run.current.moveIndex < 0) {
-    //   this.run.current.moveIndex = 0;
-    //   this.setGround();
-    // }
-    // pubsub.emit('ply', this.run.moves);
-  };
+  window.handleStart = async () => {
+    window.currentPuzzle = new CurrentPuzzle(puzzlesCounter, puzzles[puzzlesCounter]);
 
-  const handleStart = async () => {
-    setLoading(true);
-    setError(null);
-    setPuzzles(null);
-    try {
-      // собираем query-string
-      const params = new URLSearchParams({
-        level: String(level),
-        theme,
-        limit: String(limit),
-      });
-      const res = await fetch(`http://localhost:8080/puzzles?${params}`, {
-        headers: { Accept: 'application/json' },
-        method: 'GET',
-      });
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
-      const data: Puzzle[] = await res.json();
-      setPuzzles(data);
-      currentPuzzle = new CurrentPuzzle(index, data[index]);
-      const position = currentPuzzle.position();
-      console.log(currentPuzzle);
-      const chess = new Chess(currentPuzzle.puzzle.fen);
+    window.chess.load(puzzles[puzzlesCounter].fen);
+    // window.chess.move(currentPuzzle.expectedMove());
 
+    window.cg.set({
+      fen: window.chess.fen(),
+      turnColor: toColor(window.chess),
+      movable: {
+        free: false,
+        color: toColor(window.chess),
+        dests: toDests(window.chess),
+      },
+    });
+    // currentPuzzle.moveIndex++;
+    console.log(`Current puzzle: ${currentPuzzle.index}, moveIndex: ${currentPuzzle.moveIndex}`);
+
+    setTimeout(() => {
+      window.chess.move(currentPuzzle.expectedMove());
       window.cg.set({
-        fen: chess.fen(),
-
-        // turnColor: position.turn,
-        // highlight: { lastMove: true, check: true },
-        // events: {
-        //   move: userMove,
-        // },
-        // movable: { events: { after: playOtherSide(window.cg, chess) } },
-
+        fen: window.chess.fen(),
+        turnColor: toColor(window.chess),
         movable: {
           free: false,
-          color: 'white',
-          // dests: toDests(chess),
-
-          // showDests: true,
-          // dests: toDests(current)
-        },
-        events: {
-          move: userMove,
-        },
-        // orientation: current.pov, // POV из CurrentPuzzle
-        // movable: { free: false },
-        // turnColor: toColor(chess),
-        // movable: {
-        //   color: toColor(chess),
-        //   dests: toDests(chess),
-        // },
-      });
-
-      const moves = chess.moves({ verbose: true });
-      const move = chess.move(currentPuzzle.line[index]);
-      window.cg.move(move.from, move.to);
-
-      // window.cg.set({
-
-      // });
-
-      console.log(moves);
-
-      window.cg.set({
-        fen: chess.fen(),
-        turnColor: toColor(chess),
-        movable: {
-          color: toColor(chess),
-          dests: toDests(chess),
+          color: toColor(window.chess),
+          dests: toDests(window.chess),
         },
       });
-
-      // console.log(chess.ascii());
-      // console.log(chess.turn());
-      // console.log(window.cg.getState());
-
-      // current.bindBoard(window.cg);
-
-      // получаем chessops.Chess позицию
-      // const pos = puzzle.position();
-      // экспортируем обратно в FEN
-      // const fenStr = pos.export().setup + ' ' + (pos.turn === 'white' ? 'w' : 'b');
-      // ставим эту позицию на доску
-      // cg.set({ fen: fenStr });
-
-      // window.cg.set({
-      //   fen: current.puzzle.fen,
-      //   viewOnly: false,
-
-      //   turnColor: position.turn,
-      //   highlight: { lastMove: true, check: true },
-      //   events: {
-      //     move: userMove,
-      //   },
-      //   movable: {
-      //     free: true,
-      //     color: position.turn,
-      //     // showDests: true,
-      //     // dests: toDests(current)
-      //   },
-      //   // orientation: current.pov, // POV из CurrentPuzzle
-      //   // movable: { free: false },
-      //   // turnColor: toColor(chess),
-      //   // movable: {
-      //   //   color: toColor(chess),
-      //   //   dests: toDests(chess),
-      //   // },
-      // });
-      // console.log(current.expectedMove());
-
-      // position.play(current.expectedMove() as Move);
-
-      // window.cg.set({
-      //   fen: current.puzzle.fen,
-      // });
-
-      // console.log(move);
-
-      // window.cg.set({
-      //   fen: current.puzzle.fen,
-      //   orientation: current.pov, // POV из CurrentPuzzle
-      //   movable: { free: false },
-      // });
-    } catch (e: any) {
-      setError(e.message || 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
+      currentPuzzle.moveIndex++;
+    }, 1000);
+    setIsStarted(true);
+    countdownRef.current?.stop();
+    setTimeout(() => {
+      countdownRef.current?.start();
+    }, 100);
+    //   return;
   };
 
   // useEffect(() => {
@@ -380,18 +319,18 @@ export default function PuzzleRush() {
   //     window.clearInterval(id);
   //   };
   // }, []);
+  console.log(isStarted);
+  const countdownRef = useRef<Countdown>(null);
+  const [showCountdown, setShowCountdown] = useState(true);
 
   return (
     <Box display="flex" gap={2}>
-      <div id="controls">
-        <button id="prev">Prev Move</button>
-        <button id="next">Next Move</button>
-      </div>
-      <Box flex={2}>
+      <Box flex={2} sx={{ position: 'relative' }}>
         <h2>
           Цвет: {color}, прево­щение: {promoVisible ? 'ON' : 'OFF'}
         </h2>
         <Board color={color} promoVisible={promoVisible} />
+        {showCountdown && <CountdownOverlay onComplete={() => setShowCountdown(false)} />}
       </Box>
       <Box flex={1}>
         <Box
@@ -480,6 +419,16 @@ export default function PuzzleRush() {
                   {loading ? <CircularProgress size={24} /> : 'Start Puzzle Rush'}
                 </Button>
               </Box>
+              <Box sx={{ textAlign: 'center', mt: 4 }}>
+                {isStarted ? (
+                  <Timer
+                    countdownRef={countdownRef}
+                    durationMs={10000} // 10 секунд
+                    onStart={() => console.log('🔔 Timer has started')}
+                    onComplete={() => console.log('🏁 Timer has finished')}
+                  />
+                ) : null}
+              </Box>
             </>
           )}
 
@@ -564,6 +513,8 @@ export default function PuzzleRush() {
                         ))}
                       </Stack>
                       <Typography sx={{ fontWeight: 600 }}>{p.score}</Typography>
+                      <IconCounter count={1000} />
+                      <IconCounter count={1000} variant="error" />
                     </Stack>
                   ))}
               </Paper>

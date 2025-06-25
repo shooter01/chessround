@@ -34,9 +34,6 @@ export function run(
   // );
 
   // Цвет фигур на панели превращения
-  let promoColor: Color = initialColor;
-  // Видимость панели превращения
-  let showPromo = false;
   // Для зума
   let startX = 0;
   let startZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom')!) || 100;

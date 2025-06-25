@@ -9,6 +9,7 @@ import './assets/theme.css'; // Импортируем стили
 import './assets/3d.css'; // Импортируем стили
 import './assets/examples.css'; // Импортируем стили
 import './assets/promotion.css'; // Импортируем стили
+import { Chess, SQUARES } from 'chess.js';
 
 interface BoardProps {
   color: Color;
@@ -38,9 +39,7 @@ const Board: React.FC<BoardProps> = ({ color, promoVisible }) => {
   //   runnerRef.current?.setShowPromotion(promoVisible);
   // }, [promoVisible]);
 
-  return (
-    <div id="chessground-examples" style={{ width: 320, height: 320, position: 'relative' }} />
-  );
+  return <div id="chessground-examples" />;
 };
 
 export default Board;

@@ -19,7 +19,7 @@ export default function Rush() {
       <Route index element={<PuzzleView />} />
 
       {/* При заходе на /rush/rush/puzzle */}
-      <Route path="puzzle" element={<PuzzleView />} />
+      <Route path="/puzzle/*" element={<PuzzleView />} />
 
       {/* Необязательно: редирект всего непрописанного на index */}
       <Route path="*" element={<Navigate to="" replace />} />

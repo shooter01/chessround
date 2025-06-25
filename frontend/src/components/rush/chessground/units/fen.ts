@@ -5,6 +5,7 @@ import { Key } from 'chessground/types.d';
 import { Api } from 'chessground/api';
 import { Color, Key } from 'chessground/types';
 import { Chess, SQUARES } from 'chess.js';
+import { glyphToSvg } from './glyphs';
 
 export function toDests(chess: Chess): Map<Key, Key[]> {
   const dests = new Map();
@@ -18,7 +19,6 @@ export function toDests(chess: Chess): Map<Key, Key[]> {
   });
   return dests;
 }
-const chess = new Chess('7k/3P4/8/8/8/8/4K3/8 w - - 0 1');
 
 export function toColor(chess: Chess): Color {
   return chess.turn() === 'w' ? 'white' : 'black';
@@ -26,31 +26,44 @@ export function toColor(chess: Chess): Color {
 
 const userMove = (orig: Key, dest: Key): void => {
   console.log(`User move: ${orig} to ${dest}`);
-  // console.log(window.promotion.start(orig, dest, { submit: playUserMove }));
 
   const isPromoting = window.promotion.start(orig, dest, {
     submit: playUserMove,
-    // show: this.voiceMove?.promotionHook(),
   });
   if (!isPromoting) playUserMove(orig, dest);
-  // if (!window.promotion.start(orig, dest, { submit: playUserMove })) playUserMove(orig, dest);
+};
+
+const playComputerMove = (orig: Key, dest: Key): void => {
+  setTimeout(() => {
+    window.chess.move(currentPuzzle.expectedMove());
+    window.cg.set({
+      fen: window.chess.fen(),
+      turnColor: toColor(window.chess),
+      movable: {
+        free: false,
+        color: toColor(window.chess),
+        dests: toDests(window.chess),
+      },
+    });
+    currentPuzzle.moveIndex++;
+  }, 300);
 };
 
 const playUserMove = (orig: Key, dest: Key, promotion?: Role): void =>
-  playUci(`${orig}${dest}${promotion ? (promotion === 'knight' ? 'n' : promotion[0]) : ''}`);
+  playUci(`${orig}${dest}${promotion ? (promotion === 'knight' ? 'n' : promotion[0]) : ''}`, dest);
 
-const playUci = (uci: Uci): void => {
+const playUci = (uci: Uci, dest: string): void => {
   console.log(`Playing UCI: ${uci}`);
+  console.log(`actual move: ${window.currentPuzzle.expectedMove()}`);
+  let sign = '✗';
+
+  if (uci == window.currentPuzzle.expectedMove()) {
+    sign = '✓';
+  }
 
   const move = chess.move(uci);
-  console.log(`Move result: ${JSON.stringify(move)}`);
-  console.log(chess);
-  console.log(window.promotion);
 
   if (!window.promoting) {
-    // window.promotion.finish('rook');
-    console.log(move.after);
-
     window.cg.set({
       fen: chess.fen(),
       turnColor: toColor(chess),
@@ -60,6 +73,15 @@ const playUci = (uci: Uci): void => {
         dests: toDests(chess),
       },
     });
+    window.cg.setAutoShapes([{ orig: dest, customSvg: glyphToSvg[sign] }]);
+    window.currentPuzzle.moveIndex++;
+    if (window.currentPuzzle.isOver()) {
+      window.puzzlesCounter++;
+      window.handleStart();
+    } else {
+      playComputerMove();
+    }
+    console.log(`isOver: ${window.currentPuzzle.isOver()}`);
   }
   return;
 

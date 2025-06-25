@@ -1,0 +1,69 @@
+:root {
+    --ic-bg: #111;
+    --ic-hover-bg: #1d1d1d;
+    --ic-success: #00e676;
+    --ic-success-hover: #80ff9a;
+    --ic-error: #ff1744;
+    --ic-error-hover: #ff5c77;
+  }
+  
+  .icon-counter {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--ic-bg);
+    padding: 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .icon-counter:hover {
+    background-color: var(--ic-hover-bg);
+  }
+  
+  .icon-counter svg {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 8px;
+  }
+  
+  .icon-counter svg rect {
+    fill: currentColor;    /* цвет берём из color контейнера */
+    rx: 4;
+  }
+  
+  .icon-counter svg path {
+    stroke: var(--ic-bg);  /* сама галка/крестик чёрные */
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scale(1.3);
+  }
+  
+  .icon-counter .count {
+    font-size: 20px;
+    font-weight: bold;
+    color: currentColor;
+    transition: color 0.2s, text-decoration 0.2s;
+  }
+  
+  /* Варианты */
+  .icon-counter--success {
+    color: var(--ic-success);
+  }
+  .icon-counter--success:hover .count {
+    color: var(--ic-success-hover);
+  }
+  
+  .icon-counter--error {
+    color: var(--ic-error);
+  }
+  .icon-counter--error:hover .count {
+    color: var(--ic-error-hover);
+  }
+  

@@ -1,0 +1,19 @@
+.timer {
+  display: inline-flex;
+  align-items: center;
+  font-family: "Noto Sans", sans-serif;
+  color: var(--c-font, #bababa);
+}
+
+.timer__icon {
+  /* Iconify рендерит SVG, так что эти размеры применятся к <svg> */
+  width: 2em;
+  height: 2em;
+  margin-right: 0.25em;
+}
+
+.timer__text {
+  line-height: 1;
+  font-size: 2em;
+
+}
