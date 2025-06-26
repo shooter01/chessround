@@ -19,7 +19,6 @@ const App = () => {
 
   return (
     <Router>
-      <div style={{ textAlign: 'center' }}>
     
         {/* {keycloak.authenticated ? ( */}
           <ProtectedArea />
@@ -33,7 +32,6 @@ const App = () => {
             Login
           </Button>
         )} */}
-      </div>
     </Router>
   );
 };

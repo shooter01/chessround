@@ -12,29 +12,11 @@ const ProtectedArea = () => {
 
 
   return (
-    <Box sx={{ display: 'flex', height: '100vh' }}>
-      {/* Левое боковое меню */}
-
-      <Grid container style={{ flex: 1 }}>
-        <Grid item xs={8} >
-
-
-<div style={{ flex: 1 }}>
         <Routes>
-          {/* Главная страница */}
-      
           <Route path="/*" element={<App   
           //  userId={keycloak.tokenParsed.sub} 
            />} />
-
-
-          {/* Редирект на главную страницу по умолчанию */}
-          {/* <Route path="*" element={<Navigate to="/" />} /> */}
         </Routes>
-      </div>
-        </Grid>
-      </Grid>
-    </Box>
   );
 };
 

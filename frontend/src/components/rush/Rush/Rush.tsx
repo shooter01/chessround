@@ -5,11 +5,7 @@ import ChessgroundApp from './../Board/Demo.tsx'; // Adjust the path if Board is
 import { Route, Routes, Navigate } from 'react-router-dom';
 
 function PuzzleView() {
-  return (
-    <Box p={2} maxWidth={1200} mx="auto">
-      <RushComponent />
-    </Box>
-  );
+  return <RushComponent />;
 }
 
 export default function Rush() {

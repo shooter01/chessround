@@ -20,7 +20,7 @@ const RushLayout: React.FC<RushLayoutProps> = ({ userId }) => {
   })();
 
   return (
-    <Box sx={{ maxWidth: 600, mx: 'auto', p: 2 }}>
+    <>
       {/* Хидер с кнопкой «назад» и иконкой */}
       <Stack direction="row" alignItems="center" spacing={1} mb={2}>
         <IconButton component={NavLink} to="/" size="small">
@@ -57,7 +57,7 @@ const RushLayout: React.FC<RushLayoutProps> = ({ userId }) => {
 
       {/* Вложенные маршруты рендерятся здесь */}
       <Outlet />
-    </Box>
+    </>
   );
 };
 
