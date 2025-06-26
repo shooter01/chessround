@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Box,
   IconButton,
@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { useLocation } from 'react-router-dom';
 import { Icon } from '@iconify/react';
-import { IconCounter } from './components/IconCounter/IconCounter.jsx';
+import { IconCounter } from './components/IconCounter/IconCounter.tsx';
 import Countdown from 'react-countdown';
 
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
@@ -45,6 +45,11 @@ import ResultCard from './components/ResultCard/ResultCard.jsx';
 type Uci = string | undefined;
 type Key = string | undefined;
 window.chess = new Chess();
+declare global {
+  interface Window {
+    addCorrectPuzzle?: (puzzle: CurrentPuzzle, result: boolean) => Promise<void>;
+  }
+}
 // export function toDests(chess: Chess): Map<Key, Key[]> {
 //   const dests = new Map();
 //   SQUARES.forEach((s) => {
@@ -62,13 +67,13 @@ window.chess = new Chess();
 //   return chess.turn() === 'w' ? 'white' : 'black';
 // }
 
-const data = [
-  { ok: true, value: 156 },
-  { ok: true, value: 203 },
-  { ok: true, value: 284 },
-  /* … ваш массив … */
-  { ok: false, value: 2338 },
-];
+// const data = [
+//   { ok: true, value: 156 },
+//   { ok: true, value: 203 },
+//   { ok: true, value: 284 },
+//   /* … ваш массив … */
+//   { ok: false, value: 2338 },
+// ];
 
 if (!window.site) window.site = {} as Site;
 if (!window.site.load)
@@ -147,7 +152,12 @@ const puzzles = [
     game_url: 'https://lichess.org/drahwNdj#95',
   },
 ];
-window.puzzlesCounter = 0;
+interface CorrectPuzzle {
+  id: string;
+  rating: number;
+  result: boolean;
+}
+window.puzzlesCounter = -1;
 window.currentPuzzle;
 // window.currentMoveCounter = 0;
 export default function PuzzleRush() {
@@ -240,13 +250,58 @@ export default function PuzzleRush() {
   // }
 
   window.handleStart = async () => {
-    window.currentPuzzle = new CurrentPuzzle(puzzlesCounter, puzzles[puzzlesCounter]);
     setShowResults(false);
+    setCorrectPuzzles([]);
+    setShowCountdown(true);
+    setIsStarted(true);
+    countdownRef.current?.stop();
+    setTimeout(() => {
+      countdownRef.current?.start();
+    }, 100);
+    window.puzzlesCounter = -1;
 
+    window.setNextPuzzle();
+
+    // window.currentPuzzle = new CurrentPuzzle(puzzlesCounter, puzzles[puzzlesCounter]);
+    // window.chess.load(puzzles[puzzlesCounter].fen);
+    // // window.chess.move(currentPuzzle.expectedMove());
+
+    // window.cg.set({
+    //   fen: window.chess.fen(),
+    //   turnColor: toColor(window.chess),
+    //   movable: {
+    //     free: false,
+    //     color: toColor(window.chess),
+    //     dests: toDests(window.chess),
+    //   },
+    // });
+    // // currentPuzzle.moveIndex++;
+    // console.log(`Current puzzle: ${currentPuzzle.index}, moveIndex: ${currentPuzzle.moveIndex}`);
+
+    // setTimeout(() => {
+    //   window.chess.move(currentPuzzle.expectedMove());
+    //   window.cg.set({
+    //     fen: window.chess.fen(),
+    //     turnColor: toColor(window.chess),
+    //     movable: {
+    //       free: false,
+    //       color: toColor(window.chess),
+    //       dests: toDests(window.chess),
+    //     },
+    //   });
+    //   currentPuzzle.moveIndex++;
+    // }, 1000);
+
+    //   return;
+  };
+
+  window.setNextPuzzle = async () => {
+    window.puzzlesCounter++;
+    window.currentPuzzle = new CurrentPuzzle(puzzlesCounter, puzzles[puzzlesCounter]);
     window.chess.load(puzzles[puzzlesCounter].fen);
-    // window.chess.move(currentPuzzle.expectedMove());
 
     window.cg.set({
+      viewOnly: false,
       fen: window.chess.fen(),
       turnColor: toColor(window.chess),
       movable: {
@@ -256,7 +311,7 @@ export default function PuzzleRush() {
       },
     });
     // currentPuzzle.moveIndex++;
-    console.log(`Current puzzle: ${currentPuzzle.index}, moveIndex: ${currentPuzzle.moveIndex}`);
+    // console.log(`Current puzzle: ${currentPuzzle.index}, moveIndex: ${currentPuzzle.moveIndex}`);
 
     setTimeout(() => {
       window.chess.move(currentPuzzle.expectedMove());
@@ -271,14 +326,23 @@ export default function PuzzleRush() {
       });
       currentPuzzle.moveIndex++;
     }, 1000);
-    setShowCountdown(true);
-    setIsStarted(true);
-    countdownRef.current?.stop();
-    setTimeout(() => {
-      countdownRef.current?.start();
-    }, 100);
-    //   return;
   };
+
+  const [correctPuzzles, setCorrectPuzzles] = useState<CorrectPuzzle[]>([]);
+  useEffect(() => {
+    // Расширяем Window интерфейс, чтобы TS не ругался:
+
+    window.addCorrectPuzzle = async (current: CurrentPuzzle, result: boolean) => {
+      setCorrectPuzzles((prev) => [
+        ...prev,
+        {
+          id: current.puzzle.id,
+          rating: current.puzzle.rating,
+          result,
+        },
+      ]);
+    };
+  }, []);
 
   // useEffect(() => {
   //   setTimeout(() => {
@@ -415,7 +479,7 @@ export default function PuzzleRush() {
                 {isStarted && !showCountdown ? (
                   <Timer
                     countdownRef={countdownRef}
-                    durationMs={1000} // 10 секунд
+                    durationMs={20000} // 10 секунд
                     onStart={() => console.log('🔔 Timer has started')}
                     onComplete={() => {
                       console.log('🏁 Timer has finished');
@@ -427,7 +491,7 @@ export default function PuzzleRush() {
               </Box>
 
               <Box sx={{ textAlign: 'center', mt: 4 }}>
-                <IconCounter items={data} columns={8} />
+                <IconCounter items={correctPuzzles} columns={8} />
               </Box>
             </>
           ) : (

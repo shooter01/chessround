@@ -59,6 +59,10 @@ const playUci = (uci: Uci, dest: string): void => {
 
   if (uci == window.currentPuzzle.expectedMove()) {
     sign = '✓';
+  } else {
+    window.addCorrectPuzzle(window.currentPuzzle, false);
+    window.setNextPuzzle();
+    return;
   }
 
   const move = chess.move(uci);
@@ -76,8 +80,8 @@ const playUci = (uci: Uci, dest: string): void => {
     window.cg.setAutoShapes([{ orig: dest, customSvg: glyphToSvg[sign] }]);
     window.currentPuzzle.moveIndex++;
     if (window.currentPuzzle.isOver()) {
-      window.puzzlesCounter++;
-      window.handleStart();
+      window.setNextPuzzle();
+      window.addCorrectPuzzle(window.currentPuzzle, true);
     } else {
       playComputerMove();
     }
@@ -106,6 +110,7 @@ export const autoSwitch: Unit = {
 
         return {
           fen: chess.fen(),
+
           turnColor: toColor(chess),
           movable: {
             free: false,
