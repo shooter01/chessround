@@ -7,6 +7,8 @@ import { Color, Key } from 'chessground/types';
 import { Chess, SQUARES } from 'chess.js';
 import { glyphToSvg } from './glyphs';
 
+window.chess = new Chess();
+
 export function toDests(chess: Chess): Map<Key, Key[]> {
   const dests = new Map();
   SQUARES.forEach((s) => {
@@ -88,17 +90,6 @@ const playUci = (uci: Uci, dest: string): void => {
     console.log(`isOver: ${window.currentPuzzle.isOver()}`);
   }
   return;
-
-  // this.redraw();
-  // this.redrawQuick();
-  // this.redrawSlow();
-  // }
-  // this.setGround();
-  // if (this.run.current.moveIndex < 0) {
-  //   this.run.current.moveIndex = 0;
-  //   this.setGround();
-  // }
-  // pubsub.emit('ply', this.run.moves);
 };
 
 export const autoSwitch: Unit = {

@@ -11,33 +11,17 @@ import './assets/examples.css'; // Импортируем стили
 import './assets/promotion.css'; // Импортируем стили
 import { Chess, SQUARES } from 'chess.js';
 
-interface BoardProps {
-  color: Color;
-  promoVisible: boolean;
-}
-
-const Board: React.FC<BoardProps> = ({ color, promoVisible }) => {
+const Board: React.FC = ({}) => {
   // const runnerRef = useRef<ReturnType<typeof run>>();
   // run(document.getElementById('chessground-examples'), color);
   // // 1) при монтировании создаём доску
   useEffect(() => {
     const el = document.getElementById('chessground-examples');
     if (el) {
-      run(el, color);
+      run(el);
       // сразу установить видимость прево­щения, если нужно
-      // runnerRef.current.setShowPromotion(promoVisible);
     }
   }, []);
-
-  // // 2) при изменении цвета вызываем setColor()
-  // useEffect(() => {
-  //   runnerRef.current?.setColor(color);
-  // }, [color]);
-
-  // // 3) при изменении флага promoVisible вызываем setShowPromotion()
-  // useEffect(() => {
-  //   runnerRef.current?.setShowPromotion(promoVisible);
-  // }, [promoVisible]);
 
   return <div id="chessground-examples" />;
 };

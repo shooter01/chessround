@@ -15,10 +15,10 @@ const withGround: WithGround = (f) => {
   return g ? f(g) : undefined;
 };
 
-export function run(
-  element: Element,
-  initialColor: Color = 'white',
-): { setColor: (c: Color) => void; setShowPromotion: (show: boolean) => void } {
+export function run(element: Element): {
+  setColor: (c: Color) => void;
+  setShowPromotion: (show: boolean) => void;
+} {
   const patch = init([classModule, attributesModule, eventListenersModule]);
   let vnode: VNode;
   let cg: Api;
