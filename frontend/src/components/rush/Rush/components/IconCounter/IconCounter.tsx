@@ -1,8 +1,4 @@
-import React from 'react';
 import './icon-counter.css';
-import { Icon } from '@iconify/react';
-import checkIcon from '@iconify-icons/twemoji/white-heavy-check-mark';
-import crossIcon from '@iconify-icons/twemoji/cross-mark';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faTimes } from '@fortawesome/free-solid-svg-icons';
 

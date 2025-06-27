@@ -6,16 +6,22 @@ import TournamentModule from './Tournament/TournamentModule.tsx';
 import Rush from './Rush/Rush.tsx';
 import { Route, Routes } from 'react-router-dom';
 import TournamentResults from './Tournament/TournamentResults/TournamentResults.tsx';
+import Header from './Header.tsx';
+import { CustomThemeProvider } from './context/ColorModeContext.tsx'; // Adjust the path if needed
+import './index.css';
 
 const RushModule: React.FC = () => {
   return (
-    <Routes>
-      <Route path="/duel" element={<DuelModule />} />
-      <Route path="/tournaments" element={<TournamentModule />} />
-      <Route path="/tournaments/:slug" element={<TournamentResults />} />
-      <Route path="/rush/*" element={<Rush />} />
-      <Route path="/" element={<Main />} />
-    </Routes>
+    <CustomThemeProvider>
+      <Header />
+      <Routes>
+        <Route path="/duel" element={<DuelModule />} />
+        <Route path="/tournaments" element={<TournamentModule />} />
+        <Route path="/tournaments/:slug" element={<TournamentResults />} />
+        <Route path="/rush/*" element={<Rush />} />
+        <Route path="/" element={<Main />} />
+      </Routes>
+    </CustomThemeProvider>
   );
 };
 

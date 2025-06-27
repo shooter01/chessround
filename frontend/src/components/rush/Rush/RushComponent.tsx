@@ -1,26 +1,28 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
+  Container,
+  Grid,
   Box,
+  Stack,
   IconButton,
   Typography,
   Tabs,
   Tab,
-  Stack,
-  Grid,
-  Avatar,
-  Paper,
+  Button,
   CircularProgress,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  Container,
-  SelectChangeEvent,
-  Button,
+  Paper,
+  Avatar,
+  useTheme,
 } from '@mui/material';
 import { Icon } from '@iconify/react';
+import { useTranslation } from 'react-i18next';
+
 import { IconCounter } from './components/IconCounter/IconCounter.tsx';
-import { times, puzzles } from './mocks/mock.ts';
+import { times, puzzles, mockPlayers } from './mocks/mock.ts';
 import Countdown from 'react-countdown';
 
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
@@ -31,6 +33,7 @@ import { useNavigate } from 'react-router-dom';
 
 import Board from '../Board/Board';
 import CountdownOverlay from './components/StartCountDown/CountdownOverlay.tsx';
+import ItemSX from './components/ItemSX/ItemSX.tsx';
 import { toColor, toDests } from './util.ts';
 import './styles.css';
 
@@ -59,26 +62,13 @@ window.currentPuzzle;
 
 export default function PuzzleRush() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const { t } = useTranslation();
+
   const [mainTab, setMainTab] = useState<'play' | 'leaderboard'>('play');
   const [boardTab, setBoardTab] = useState<'global' | 'friends' | 'personal'>('global');
-  const [position, setPosition] = useState<string>(
-    'rnbqkb1r/pp1ppppp/5n2/8/3N1B2/8/PPP1PPPP/RN1QKB1R b KQkq - 0 4',
-  );
 
   const [range, setRange] = useState<'daily' | 'weekly' | 'all'>('all');
-
-  const itemSx = (active: boolean) => ({
-    flex: 1,
-    textAlign: 'center',
-    cursor: 'pointer',
-    transition: 'transform .2s, filter .2s',
-    transform: active ? 'scale(1.05)' : 'scale(1)',
-    filter: active ? 'drop-shadow(0 0 12px rgba(0,0,0,0.3))' : 'none',
-    '&:hover': {
-      filter: 'drop-shadow(0 0 16px rgba(0,0,0,0.4))',
-      transform: 'scale(1.1)',
-    },
-  });
 
   const handleMainTab = (_: any, v: string) => setMainTab(v as any);
   const handleBoardTab = (_: any, v: string) => setBoardTab(v as any);
@@ -90,7 +80,7 @@ export default function PuzzleRush() {
 
   // Параметры запроса – можно взять из селектора, URL, контекста…
   const level = 3;
-  const theme = 'fork';
+  // const theme = 'fork';
   const limit = 5;
 
   const [promoVisible, setPromoVisible] = useState(false);
@@ -151,7 +141,6 @@ export default function PuzzleRush() {
     };
   }, []);
 
-  const [color, setColor] = useState<Color>('black');
   const [showResults, setShowResults] = useState<boolean>(false);
 
   const countdownRef = useRef<Countdown>(null);
@@ -161,14 +150,13 @@ export default function PuzzleRush() {
     <Container
       maxWidth="lg"
       sx={{
-        py: 2,
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        minHeight: '100vh',
       }}
     >
       <Grid container spacing={2} sx={{ maxWidth: '1400px' }}>
+        {/* Левая часть: доска и оверлеи */}
         <Grid
           item
           xs={12}
@@ -189,36 +177,46 @@ export default function PuzzleRush() {
                 today={1}
                 allTime={23}
                 longestStreak={0}
-                onPlayAgain={() => {
-                  handleStart();
-                }}
-                onAnotherMode={() => {
-                  navigate('/');
-                }}
+                onPlayAgain={() => window.handleStart()}
+                onAnotherMode={() => navigate('/')}
               />
             </div>
           )}
         </Grid>
-        <Grid item xs={12} md={4}>
+
+        {/* Правая панель */}
+        <Grid
+          item
+          xs={12}
+          md="auto" // теперь займёт только ширину контента
+          sx={{
+            // чтобы контент в центре не растягивал грид
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
           <Box
             sx={{
-              bgcolor: '#f5f5f5',
-              color: '#333',
+              width: { xs: '100%', sm: 360 },
+              bgcolor: 'background.paper',
+              boxShadow: (theme) => theme.shadows[6],
               borderRadius: 2,
-              maxWidth: 600,
-              mx: 'auto',
               p: 2,
-              fontFamily: 'Arial, sans-serif',
+              transition: 'transform .2s',
+              '&:hover': {
+                // transform: 'translateY(-4px)',
+                // boxShadow: (theme) => theme.shadows[12],
+              },
             }}
           >
             {/* BACK BUTTON + TITLE */}
             <Stack direction="row" alignItems="center" sx={{ mb: 1 }}>
               <IconButton size="small" onClick={() => navigate('/')}>
-                <ArrowBackIosNewIcon />
+                <ArrowBackIosNewIcon sx={{ color: theme.palette.text.secondary }} />
               </IconButton>
               <Box sx={{ flexGrow: 1, textAlign: 'center' }}>
                 <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                  Puzzle Rush
+                  Chesscup
                 </Typography>
               </Box>
               <Box sx={{ width: 40 }} />
@@ -226,41 +224,42 @@ export default function PuzzleRush() {
 
             {/* Puzzle icon */}
             <Box sx={{ textAlign: 'center', my: 1 }}>
-              <ExtensionIcon sx={{ fontSize: 48, color: '#fb8c00' }} />
+              <ExtensionIcon sx={{ fontSize: 48, color: theme.palette.primary.main }} />
             </Box>
 
             {/* Top stats */}
             <Stack direction="row" justifyContent="space-around" mb={1}>
               <Stack alignItems="center">
-                <WbSunnyIcon />
+                <WbSunnyIcon sx={{ color: theme.palette.text.secondary }} />
                 <Typography variant="h6">--</Typography>
                 <Typography variant="caption" sx={{ textTransform: 'uppercase' }}>
                   Best Today
                 </Typography>
               </Stack>
               <Stack alignItems="center">
-                <SyncIcon />
+                <SyncIcon sx={{ color: theme.palette.text.secondary }} />
                 <Typography variant="h6">--</Typography>
                 <Typography variant="caption" sx={{ textTransform: 'uppercase' }}>
                   Top Score
                 </Typography>
               </Stack>
             </Stack>
+
             {isStarted ? (
               <>
                 <Box sx={{ textAlign: 'center', mt: 4 }}>
-                  {isStarted && !showCountdown ? (
+                  {!showCountdown && (
                     <Timer
                       countdownRef={countdownRef}
-                      durationMs={200000} // 10 секунд
+                      durationMs={200000}
                       onStart={() => console.log('🔔 Timer has started')}
                       onComplete={() => {
-                        console.log('🏁 Timer has finished');
+                        console.log('🏁 Timer finished');
                         setShowResults(true);
                         setIsStarted(false);
                       }}
                     />
-                  ) : null}
+                  )}
                 </Box>
 
                 <Box sx={{ textAlign: 'center', mt: 4 }}>
@@ -286,12 +285,22 @@ export default function PuzzleRush() {
                     {/* Time icons row */}
                     <Stack direction="row" spacing={2} sx={{ mb: 4 }}>
                       {times.map((t) => {
-                        // const active = selTime === t.key;
                         const active = false;
                         return (
-                          <Box key={t.key} onClick={() => navigate(t.path)} sx={itemSx(active)}>
+                          <Box
+                            key={t.key}
+                            onClick={() => navigate(t.path)}
+                            sx={ItemSX(active, theme)}
+                          >
                             <Icon icon={t.icon} width={80} height={80} />
-                            <Typography sx={{ mt: 1, fontSize: 16, fontWeight: 700 }}>
+                            <Typography
+                              sx={{
+                                mt: 1,
+                                fontSize: 16,
+                                fontWeight: 700,
+                                color: theme.palette.text.primary,
+                              }}
+                            >
                               {t.label}
                             </Typography>
                           </Box>
@@ -329,7 +338,20 @@ export default function PuzzleRush() {
                     </Tabs>
 
                     {/* Period select */}
-                    <FormControl size="small" sx={{ mt: 1, mb: 1, minWidth: 120 }}>
+                    <FormControl
+                      size="small"
+                      sx={{
+                        mt: 1,
+                        mb: 1,
+                        minWidth: 120,
+                        '& .MuiInputLabel-root': {
+                          color: theme.palette.text.secondary,
+                        },
+                        '& .MuiSelect-icon': {
+                          color: theme.palette.text.secondary,
+                        },
+                      }}
+                    >
                       <InputLabel>All</InputLabel>
                       <Select value={range} label="All" onChange={handleRange}>
                         <MenuItem value="daily">Daily</MenuItem>
@@ -342,8 +364,8 @@ export default function PuzzleRush() {
                     <Paper
                       variant="outlined"
                       sx={{
-                        bgcolor: '#fff',
-                        borderColor: '#ddd',
+                        bgcolor: theme.palette.background.paper,
+                        borderColor: theme.palette.divider,
                         borderRadius: 2,
                         maxHeight: 350,
                         overflowY: 'auto',
@@ -364,29 +386,33 @@ export default function PuzzleRush() {
                             px={2}
                             py={1}
                             sx={{
-                              '&:nth-of-type(odd)': { bgcolor: '#fafafa' },
+                              '&:nth-of-type(odd)': {
+                                bgcolor: theme.palette.action.hover,
+                              },
                             }}
                           >
                             <Stack direction="row" alignItems="center" spacing={1}>
                               <Typography sx={{ width: 24 }}>#{p.rank}</Typography>
-                              <Avatar
-                                src={p.avatarUrl}
-                                sx={{ width: 32, height: 32, bgcolor: '#ccc' }}
-                              />
+                              <Avatar src={p.avatarUrl} sx={{ width: 32, height: 32 }} />
                               {p.title && (
                                 <Box
                                   sx={{
                                     fontSize: 12,
                                     px: 0.5,
                                     py: 0.2,
-                                    border: '1px solid #aaa',
+                                    border: `1px solid ${theme.palette.divider}`,
                                     borderRadius: '4px',
                                   }}
                                 >
                                   {p.title}
                                 </Box>
                               )}
-                              <Typography sx={{ color: '#1976d2', fontWeight: 500 }}>
+                              <Typography
+                                sx={{
+                                  color: theme.palette.primary.main,
+                                  fontWeight: 500,
+                                }}
+                              >
                                 {p.username}
                               </Typography>
                               <Box component="span">{p.flag}</Box>

@@ -203,7 +203,7 @@ export function run(element: Element): {
         ]),
 
         // подпись под доской
-        h('p', unit.name),
+        // h('p', unit.name),
       ]),
     ]);
   }

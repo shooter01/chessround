@@ -5,6 +5,7 @@ import Typography from '@mui/material/Typography';
 import ProtectedArea from './components/ProtectedArea';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import  './index.css'; // Импортируем стили
+import './i18n';
 
 const App = () => {
   // const { keycloak, initialized } = useKeycloak();
