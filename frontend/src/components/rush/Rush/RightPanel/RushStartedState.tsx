@@ -73,7 +73,7 @@ export default function RushStartedState({
         },
       }}
     >
-      <CustomInfoCard state="black" text="Black to move" />
+      <CustomInfoCard state={pov} text={`${pov.charAt(0).toUpperCase() + pov.slice(1)} to move`} />
       {/* <CustomInfoCard
         icon={ExtensionIcon}
         title={t('rush.started.title')}
@@ -97,7 +97,7 @@ export default function RushStartedState({
       </Box>
 
       <Box sx={{ textAlign: 'center', mt: 4 }}>
-        <IconCounter items={correctPuzzles} columns={8} />
+        <IconCounter items={correctPuzzles} columns={5} />
       </Box>
     </Box>
   );

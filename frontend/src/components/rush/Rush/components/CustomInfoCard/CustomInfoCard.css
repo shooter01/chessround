@@ -83,7 +83,7 @@
     border-radius: 2px;
     background-color: #ffffff;
     /* тонкий бордер вокруг квадратика */
-    border: 30px solid #6b7280; /* серый бордер для white */
+    border: 1px solid #6b7280; 
   }
   .badge-square.black {
     background-color: #1e1e1e;
@@ -92,7 +92,7 @@
   }
   .badge-square.black {
     background-color: #1e1e1e;
-    border: none;
+    border: 1px solid #ffffff;
   }
   
   .badge-icon.correct,
