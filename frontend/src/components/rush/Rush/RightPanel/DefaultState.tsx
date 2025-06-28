@@ -18,11 +18,12 @@ import {
   Paper,
   Avatar,
   useTheme,
+  SelectChangeEvent,
 } from '@mui/material';
 import { Icon } from '@iconify/react';
 
 import { useTranslation } from 'react-i18next';
-import { times, puzzles, mockPlayers } from '../mocks/mock.ts';
+import { createTimes, puzzles, mockPlayers } from '../mocks/mock.ts';
 import ItemSX from '../components/ItemSX/ItemSX.tsx';
 
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
@@ -31,6 +32,10 @@ import WbSunnyIcon from '@mui/icons-material/CalendarToday';
 import SyncIcon from '@mui/icons-material/Autorenew';
 import { IconCounter } from '../components/IconCounter/IconCounter.tsx';
 import Timer from '../components/Timer/Timer.jsx';
+import { useNavigate } from 'react-router-dom';
+import PlayTab from './PlayTab';
+import LeaderboardTab from './LeaderboardTab';
+import GameState from './GameState';
 
 export default function RushDefaultState({
   isStarted = false,
@@ -43,6 +48,7 @@ export default function RushDefaultState({
 }) {
   const theme = useTheme();
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const [mainTab, setMainTab] = useState<'play' | 'leaderboard'>('play');
   const [boardTab, setBoardTab] = useState<'global' | 'friends' | 'personal'>('global');
@@ -52,6 +58,8 @@ export default function RushDefaultState({
   const handleMainTab = (_: any, v: string) => setMainTab(v as any);
   const handleBoardTab = (_: any, v: string) => setBoardTab(v as any);
   const handleRange = (e: SelectChangeEvent) => setRange(e.target.value as any);
+
+  const times = createTimes(t);
 
   return (
     <Box
@@ -75,7 +83,7 @@ export default function RushDefaultState({
         </IconButton>
         <Box sx={{ flexGrow: 1, textAlign: 'center' }}>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            Chesscup
+            {t('rush.title')}
           </Typography>
         </Box>
         <Box sx={{ width: 40 }} />
@@ -92,39 +100,26 @@ export default function RushDefaultState({
           <WbSunnyIcon sx={{ color: theme.palette.text.secondary }} />
           <Typography variant="h6">--</Typography>
           <Typography variant="caption" sx={{ textTransform: 'uppercase' }}>
-            Best Today
+            {t('rush.bestToday')}
           </Typography>
         </Stack>
         <Stack alignItems="center">
           <SyncIcon sx={{ color: theme.palette.text.secondary }} />
           <Typography variant="h6">--</Typography>
           <Typography variant="caption" sx={{ textTransform: 'uppercase' }}>
-            Top Score
+            {t('rush.topScore')}
           </Typography>
         </Stack>
       </Stack>
 
       {isStarted ? (
-        <>
-          <Box sx={{ textAlign: 'center', mt: 4 }}>
-            {!showCountdown && (
-              <Timer
-                countdownRef={countdownRef}
-                durationMs={200000}
-                onStart={() => console.log('🔔 Timer has started')}
-                onComplete={() => {
-                  console.log('🏁 Timer finished');
-                  setShowResults(true);
-                  setIsStarted(false);
-                }}
-              />
-            )}
-          </Box>
-
-          <Box sx={{ textAlign: 'center', mt: 4 }}>
-            <IconCounter items={correctPuzzles} columns={8} />
-          </Box>
-        </>
+        <GameState
+          showCountdown={showCountdown}
+          correctPuzzles={correctPuzzles}
+          countdownRef={countdownRef}
+          setShowResults={setShowResults}
+          setIsStarted={setIsStarted}
+        />
       ) : (
         <>
           {/* Main tabs */}
@@ -135,46 +130,12 @@ export default function RushDefaultState({
             indicatorColor="primary"
             sx={{ mb: 1 }}
           >
-            <Tab label="Play" value="play" />
-            <Tab label="Leaderboard" value="leaderboard" />
+            <Tab label={t('rush.playTab')} value="play" />
+            <Tab label={t('rush.leaderboardTab')} value="leaderboard" />
           </Tabs>
 
           {mainTab === 'play' && (
-            <>
-              {/* Time icons row */}
-              <Stack direction="row" spacing={2} sx={{ mb: 4 }}>
-                {times.map((t) => {
-                  const active = false;
-                  return (
-                    <Box key={t.key} onClick={() => navigate(t.path)} sx={ItemSX(active, theme)}>
-                      <Icon icon={t.icon} width={80} height={80} />
-                      <Typography
-                        sx={{
-                          mt: 1,
-                          fontSize: 16,
-                          fontWeight: 700,
-                          color: theme.palette.text.primary,
-                        }}
-                      >
-                        {t.label}
-                      </Typography>
-                    </Box>
-                  );
-                })}
-              </Stack>
-
-              <Box sx={{ textAlign: 'center', mt: 4 }}>
-                <Button
-                  variant="contained"
-                  size="large"
-                  color="primary"
-                  onClick={handleStart}
-                  disabled={loading}
-                >
-                  {loading ? <CircularProgress size={24} /> : 'Start Puzzle Rush'}
-                </Button>
-              </Box>
-            </>
+            <PlayTab loading={loading} onStart={handleStart} />
           )}
 
           {mainTab === 'leaderboard' && (
@@ -187,9 +148,9 @@ export default function RushDefaultState({
                 indicatorColor="primary"
                 sx={{ mt: 1 }}
               >
-                <Tab label="Global" value="global" />
-                <Tab label="Friends" value="friends" />
-                <Tab label="Personal" value="personal" />
+                <Tab label={t('rush.globalTab')} value="global" />
+                <Tab label={t('rush.friendsTab')} value="friends" />
+                <Tab label={t('rush.personalTab')} value="personal" />
               </Tabs>
 
               {/* Period select */}
@@ -207,11 +168,11 @@ export default function RushDefaultState({
                   },
                 }}
               >
-                <InputLabel>All</InputLabel>
-                <Select value={range} label="All" onChange={handleRange}>
-                  <MenuItem value="daily">Daily</MenuItem>
-                  <MenuItem value="weekly">Weekly</MenuItem>
-                  <MenuItem value="all">All</MenuItem>
+                <InputLabel>{t('rush.range.all')}</InputLabel>
+                <Select value={range} label={t('rush.range.all')} onChange={handleRange}>
+                  <MenuItem value="daily">{t('rush.range.daily')}</MenuItem>
+                  <MenuItem value="weekly">{t('rush.range.weekly')}</MenuItem>
+                  <MenuItem value="all">{t('rush.range.all')}</MenuItem>
                 </Select>
               </FormControl>
 
@@ -259,7 +220,7 @@ export default function RushDefaultState({
                               borderRadius: '4px',
                             }}
                           >
-                            {p.title}
+                            {t(p.titleKey)}
                           </Box>
                         )}
                         <Typography

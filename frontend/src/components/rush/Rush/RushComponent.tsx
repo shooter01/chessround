@@ -19,8 +19,9 @@ import {
   useTheme,
 } from '@mui/material';
 
-import { times, puzzles, mockPlayers } from './mocks/mock.ts';
+import { createTimes, puzzles, mockPlayers } from './mocks/mock.ts';
 import Countdown from 'react-countdown';
+import { useTranslation } from 'react-i18next';
 
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ExtensionIcon from '@mui/icons-material/Extension';

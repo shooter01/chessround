@@ -8,6 +8,29 @@ export interface Puzzle {
   // …другие поля по вашему интерфейсу…
 }
 
+export interface ItemConfig<T> {
+  key: string;
+  label: string;
+  icon: any;
+  path: string;
+}
+
+export interface Time {
+  key: string;
+  label: string;
+  icon: any;
+  path: string;
+}
+
+export interface Player {
+  rank: number;
+  title?: string;
+  username: string;
+  flag: string;
+  badges?: string[];
+  score: number;
+}
+
 export const mockPuzzles: Puzzle[] = [
   {
     // Белый король на e2, черный — на h8, пешка на a7, белые ходят
@@ -17,10 +40,11 @@ export const mockPuzzles: Puzzle[] = [
   },
 ];
 
-export const times: ItemConfig<Time>[] = [
-  { key: '3', label: '3 min', icon: boltIcon, path: 'puzzle/3' },
-  { key: '5', label: '5 min', icon: clockIcon, path: 'puzzle/5' },
-  { key: 'survival', label: 'Survival', icon: skullIcon, path: 'puzzle/survival' },
+// Функция для создания массива times с переводами
+export const createTimes = (t: (key: string) => string): ItemConfig<Time>[] => [
+  { key: '3', label: t('rush.times.threeMin'), icon: boltIcon, path: 'puzzle/3' },
+  { key: '5', label: t('rush.times.fiveMin'), icon: clockIcon, path: 'puzzle/5' },
+  { key: 'survival', label: t('rush.times.survival'), icon: skullIcon, path: 'puzzle/survival' },
 ];
 
 export const mockPlayers: Player[] = [

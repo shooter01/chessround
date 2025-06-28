@@ -140,7 +140,7 @@ export function run(element: Element): {
   // Собираем VNode-дерево
   function render(): VNode {
     return h('div#chessground-examples', [
-      h('section.blue.merida', { style: { position: 'relative', overflow: 'visible' } }, [
+      h('section.green.alpha', { style: { position: 'relative', overflow: 'visible' } }, [
         h('div.cg-wrap-container', { style: { position: 'relative', overflow: 'visible' } }, [
           // 1) Сам board-контейнер, в который Chessground вставит доску:
           h('div.cg-wrap', {

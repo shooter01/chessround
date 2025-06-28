@@ -3,7 +3,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { run, Color } from '../chessground/main';
 import './assets/chessground.css';
 import './assets/promotion.css';
-
+import './assets/pieces.css';
+import './assets/board.css';
 import './assets/chessground.css'; // Импортируем стили
 import './assets/theme.css'; // Импортируем стили
 import './assets/3d.css'; // Импортируем стили

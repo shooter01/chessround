@@ -18,11 +18,12 @@ import {
   Paper,
   Avatar,
   useTheme,
+  SelectChangeEvent,
 } from '@mui/material';
 import { Icon } from '@iconify/react';
 
 import { useTranslation } from 'react-i18next';
-import { times, puzzles, mockPlayers } from '../mocks/mock.ts';
+import { createTimes, puzzles, mockPlayers } from '../mocks/mock.ts';
 import CustomInfoCard from '../components/CustomInfoCard/CustomInfoCard.tsx';
 
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
@@ -53,6 +54,10 @@ export default function RushStartedState({
   const handleMainTab = (_: any, v: string) => setMainTab(v as any);
   const handleBoardTab = (_: any, v: string) => setBoardTab(v as any);
   const handleRange = (e: SelectChangeEvent) => setRange(e.target.value as any);
+  
+  // Создаем массив times с переводами
+  const times = createTimes(t);
+  
   console.log(pov);
 
   return (
