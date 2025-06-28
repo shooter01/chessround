@@ -150,6 +150,8 @@ export class PromotionCtrl {
     return h(
       'div#promotion-choice.' + vertical,
       {
+        attrs: { style: 'left: ' + left + '%' },
+
         hook: onInsert((el) => {
           el.addEventListener('click', this.cancel);
           el.oncontextmenu = () => false;
@@ -160,7 +162,7 @@ export class PromotionCtrl {
         return h(
           'square',
           {
-            attrs: { style: 'top: ' + top + '%;left: ' + left + '%' },
+            attrs: { style: 'top: ' + top + '%;' },
             hook: bind('click', (e) => {
               e.stopPropagation();
               this.finish(serverRole);

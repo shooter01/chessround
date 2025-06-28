@@ -6,6 +6,7 @@ import { Api } from 'chessground/api';
 import { Color, Key } from 'chessground/types';
 import { Chess, SQUARES } from 'chess.js';
 import { glyphToSvg } from './glyphs';
+import { lastMoveCrazyhouse } from './basics';
 
 window.chess = new Chess();
 
@@ -41,6 +42,14 @@ const playComputerMove = (orig: Key, dest: Key): void => {
     window.cg.set({
       fen: window.chess.fen(),
       turnColor: toColor(window.chess),
+      highlight: {
+        lastMove: true,
+        check: true,
+      },
+      premovable: {
+        enabled: true,
+      },
+      // lastMove: currentPuzzle.expectedMove(),
       movable: {
         free: false,
         color: toColor(window.chess),
@@ -48,7 +57,7 @@ const playComputerMove = (orig: Key, dest: Key): void => {
       },
     });
     currentPuzzle.moveIndex++;
-  }, 300);
+  }, 3000);
 };
 
 const playUserMove = (orig: Key, dest: Key, promotion?: Role): void =>
@@ -73,6 +82,14 @@ const playUci = (uci: Uci, dest: string): void => {
     window.cg.set({
       fen: chess.fen(),
       turnColor: toColor(chess),
+      highlight: {
+        lastMove: true,
+        check: true,
+      },
+      premovable: {
+        enabled: true,
+      },
+      // check: true,
       movable: {
         free: false,
         color: toColor(chess),

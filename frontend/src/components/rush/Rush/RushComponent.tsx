@@ -40,6 +40,7 @@ import { Chess, Color } from 'chess.js';
 import ResultCard from './components/ResultCard/ResultCard.jsx';
 import RushDefaultState from './RightPanel/DefaultState.tsx';
 import RushStartedState from './RightPanel/RushStartedState.tsx';
+import { lastMoveDrop } from '../chessground/units/zh.ts';
 
 declare global {
   interface Window {
@@ -102,9 +103,13 @@ export default function PuzzleRush() {
       window.cg.set({
         fen: window.chess.fen(),
         turnColor: toColor(window.chess),
+        premovable: {
+          enabled: true,
+        },
         movable: {
-          free: false,
+          // free: false,
           color: toColor(window.chess),
+          // color: 'white',
           dests: toDests(window.chess),
         },
       });

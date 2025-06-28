@@ -140,68 +140,67 @@ export function run(element: Element): {
   // Собираем VNode-дерево
   function render(): VNode {
     return h('div#chessground-examples', [
-      h('section.green.alpha', { style: { position: 'relative', overflow: 'visible' } }, [
+      h('section.green.merida', { style: { position: 'relative', overflow: 'visible' } }, [
         h('div.cg-wrap-container', { style: { position: 'relative', overflow: 'visible' } }, [
           // 1) Сам board-контейнер, в который Chessground вставит доску:
           h('div.cg-wrap', {
             hook: { insert: runUnit, postpatch: runUnit },
           }),
-
-          // 2) А теперь _рядом_ с доской_ рендерим оверлей превращения:
           window.promotion.view(),
+          // 2) А теперь _рядом_ с доской_ рендерим оверлей превращения:
 
           // 3) Ваши кнопки (ориентация, зум и т.д.)
-          h('div.toggle-orient.flyout-btn', { on: { click: () => cg.toggleOrientation() } }, [
-            // Вставляем точно такой же SVG, как вы бы писали в чистом HTML
-            h(
-              'svg',
-              {
-                attrs: {
-                  width: '16',
-                  height: '16',
-                  viewBox: '0 0 24 24',
-                  fill: 'none',
-                  stroke: '#333',
-                  'stroke-width': '2',
-                  'stroke-linecap': 'round',
-                  'stroke-linejoin': 'round',
-                },
-              },
-              [
-                h('polyline', { attrs: { points: '23 4 23 10 17 10' } }),
-                h('polyline', { attrs: { points: '1 20 1 14 7 14' } }),
-                h('path', {
-                  attrs: {
-                    d: 'M3.51 9a9 9 0 0114.13-3.36L23 10 M1 14l4.36 4.36A9 9 0 0020.49 15',
-                  },
-                }),
-              ],
-            ),
-          ]),
-          h('div.resize-handle.flyout-btn', { on: { mousedown: startDrag } }, [
-            // А тут — иконка «растянуть/сжать»
-            h(
-              'svg',
-              {
-                attrs: {
-                  width: '16',
-                  height: '16',
-                  viewBox: '0 0 24 24',
-                  fill: 'none',
-                  stroke: '#333',
-                  'stroke-width': '2',
-                  'stroke-linecap': 'round',
-                  'stroke-linejoin': 'round',
-                },
-              },
-              [
-                h('polyline', { attrs: { points: '4 17 10 11 4 5' } }),
-                h('polyline', { attrs: { points: '20 17 14 11 20 5' } }),
-              ],
-            ),
-          ]),
-        ]),
 
+          // h('div.resize-handle.flyout-btn', { on: { mousedown: startDrag } }, [
+          //   // А тут — иконка «растянуть/сжать»
+          //   h(
+          //     'svg',
+          //     {
+          //       attrs: {
+          //         width: '16',
+          //         height: '16',
+          //         viewBox: '0 0 24 24',
+          //         fill: 'none',
+          //         stroke: '#333',
+          //         'stroke-width': '2',
+          //         'stroke-linecap': 'round',
+          //         'stroke-linejoin': 'round',
+          //       },
+          //     },
+          //     [
+          //       h('polyline', { attrs: { points: '4 17 10 11 4 5' } }),
+          //       h('polyline', { attrs: { points: '20 17 14 11 20 5' } }),
+          //     ],
+          //   ),
+          // ]),
+        ]),
+        h('div.toggle-orient.flyout-btn', { on: { click: () => cg.toggleOrientation() } }, [
+          // Вставляем точно такой же SVG, как вы бы писали в чистом HTML
+          h(
+            'svg',
+            {
+              attrs: {
+                width: '16',
+                height: '16',
+                viewBox: '0 0 24 24',
+                fill: 'none',
+                stroke: '#333',
+                'stroke-width': '2',
+                'stroke-linecap': 'round',
+                'stroke-linejoin': 'round',
+              },
+            },
+            [
+              h('polyline', { attrs: { points: '23 4 23 10 17 10' } }),
+              h('polyline', { attrs: { points: '1 20 1 14 7 14' } }),
+              h('path', {
+                attrs: {
+                  d: 'M3.51 9a9 9 0 0114.13-3.36L23 10 M1 14l4.36 4.36A9 9 0 0020.49 15',
+                },
+              }),
+            ],
+          ),
+        ]),
         // подпись под доской
         // h('p', unit.name),
       ]),
@@ -212,14 +211,14 @@ export function run(element: Element): {
   unit = fen.autoSwitch;
   redraw();
 
-  return {
-    setColor(c: Color) {
-      promoColor = c;
-      redraw();
-    },
-    setShowPromotion(show: boolean) {
-      showPromo = show;
-      redraw();
-    },
-  };
+  // return {
+  //   setColor(c: Color) {
+  //     promoColor = c;
+  //     redraw();
+  //   },
+  //   setShowPromotion(show: boolean) {
+  //     showPromo = show;
+  //     redraw();
+  //   },
+  // };
 }

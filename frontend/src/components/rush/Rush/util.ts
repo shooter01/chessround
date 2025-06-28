@@ -25,8 +25,8 @@ export function playOtherSide(cg: Api, chess) {
     cg.set({
       turnColor: toColor(chess),
       movable: {
-        color: toColor(chess),
-        dests: toDests(chess),
+        // color: toColor(chess),
+        // dests: toDests(chess),
       },
     });
   };
