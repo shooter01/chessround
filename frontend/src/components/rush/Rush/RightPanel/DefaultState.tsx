@@ -54,7 +54,20 @@ export default function RushDefaultState({
   const handleRange = (e: SelectChangeEvent) => setRange(e.target.value as any);
 
   return (
-    <>
+    <Box
+      sx={{
+        width: { xs: '100%', sm: 360 },
+        bgcolor: 'background.paper',
+        boxShadow: (theme) => theme.shadows[6],
+        borderRadius: 2,
+        p: 2,
+        transition: 'transform .2s',
+        '&:hover': {
+          // transform: 'translateY(-4px)',
+          // boxShadow: (theme) => theme.shadows[12],
+        },
+      }}
+    >
       {/* BACK BUTTON + TITLE */}
       <Stack direction="row" alignItems="center" sx={{ mb: 1 }}>
         <IconButton size="small" onClick={() => navigate('/')}>
@@ -272,6 +285,6 @@ export default function RushDefaultState({
           )}
         </>
       )}
-    </>
+    </Box>
   );
 }

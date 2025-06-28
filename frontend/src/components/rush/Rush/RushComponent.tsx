@@ -38,6 +38,7 @@ import CurrentPuzzle from './current/current';
 import { Chess, Color } from 'chess.js';
 import ResultCard from './components/ResultCard/ResultCard.jsx';
 import RushDefaultState from './RightPanel/DefaultState.tsx';
+import RushStartedState from './RightPanel/RushStartedState.tsx';
 
 declare global {
   interface Window {
@@ -134,18 +135,27 @@ export default function PuzzleRush() {
   return (
     <Container
       maxWidth="lg"
-      sx={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}
+      // sx={{
+      //   display: 'flex',
+      //   justifyContent: 'center',
+      //   alignItems: 'center',
+      // }}
     >
-      <Grid container spacing={2} sx={{ maxWidth: '1400px' }}>
+      <Grid
+        container
+        spacing={2}
+        sx={{
+          width: '100%',
+          maxWidth: 1400,
+          justifyContent: 'center',
+          mx: 'auto', // центрируем весь грид
+        }}
+      >
         {/* Левая часть: доска и оверлеи */}
         <Grid
           item
           xs={12}
-          lg={8}
+          md={8}
           sx={{
             position: 'relative',
             display: 'flex',
@@ -173,7 +183,7 @@ export default function PuzzleRush() {
         <Grid
           item
           xs={12}
-          md="auto" // теперь займёт только ширину контента
+          md="4" // теперь займёт только ширину контента
           sx={{
             // чтобы контент в центре не растягивал грид
             display: 'flex',
@@ -182,27 +192,33 @@ export default function PuzzleRush() {
         >
           <Box
             sx={{
-              width: { xs: '100%', sm: 360 },
-              bgcolor: 'background.paper',
-              boxShadow: (theme) => theme.shadows[6],
-              borderRadius: 2,
-              p: 2,
-              transition: 'transform .2s',
-              '&:hover': {
-                // transform: 'translateY(-4px)',
-                // boxShadow: (theme) => theme.shadows[12],
-              },
+              width: '100%', // растягиваем Box на всю ширину колонки
+              maxWidth: 360, // но не больше 300px (подберите свой лимит)
+              mx: 'auto',
             }}
           >
-            <RushDefaultState
-              isStarted={isStarted}
-              loading={loading}
-              correctPuzzles={correctPuzzles}
-              countdownRef={countdownRef}
-              setShowResults={setShowResults}
-              setIsStarted={setIsStarted}
-              showCountdown={showCountdown}
-            />
+            {!isStarted ? (
+              <RushDefaultState
+                isStarted={isStarted}
+                loading={loading}
+                correctPuzzles={correctPuzzles}
+                countdownRef={countdownRef}
+                setShowResults={setShowResults}
+                setIsStarted={setIsStarted}
+                showCountdown={showCountdown}
+              />
+            ) : (
+              <RushStartedState
+                isStarted={isStarted}
+                loading={loading}
+                pov={currentPuzzle.pov}
+                correctPuzzles={correctPuzzles}
+                countdownRef={countdownRef}
+                setShowResults={setShowResults}
+                setIsStarted={setIsStarted}
+                showCountdown={showCountdown}
+              />
+            )}
           </Box>
         </Grid>
       </Grid>
