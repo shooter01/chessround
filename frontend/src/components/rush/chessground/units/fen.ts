@@ -6,7 +6,92 @@ import { Api } from 'chessground/api';
 import { Color, Key } from 'chessground/types';
 import { Chess, SQUARES } from 'chess.js';
 import { glyphToSvg } from './glyphs';
-import { lastMoveCrazyhouse } from './basics';
+import sound from './sound';
+
+const site = window.site || {};
+// site.load is initialized in site.inline.ts (body script)
+// site.manifest is fetched
+// site.info, site.debug are populated by ui/build
+// site.quietMode is set elsewhere
+// window.lichess is initialized in ui/api/src/api.ts
+site.sound = sound;
+
+site.sound.load(`move`, site.sound.url(`/sound/Move.mp3`));
+site.sound.load(`capture`, site.sound.url(`/sound/Capture.mp3`));
+
+let startX = 0;
+let initialZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom')!) || 100;
+
+export default function resizeHandle(els, pref, ply, visible?): void {
+  // if (pref === ShowResizeHandle.Never) return;
+
+  const el = document.createElement('cg-resize');
+  els.container.appendChild(el);
+
+  const startResize = (start) => {
+    start.preventDefault();
+
+    const mousemoveEvent = start.type === 'touchstart' ? 'touchmove' : 'mousemove',
+      mouseupEvent = start.type === 'touchstart' ? 'touchend' : 'mouseup',
+      startPos = eventPosition(start)!;
+    let zoom = initialZoom;
+
+    // const saveZoom = debounce(() => xhr.text(`/pref/zoom?v=${zoom}`, { method: 'post' }), 700);
+
+    const resize = (move) => {
+      const pos = eventPosition(move)!,
+        delta = pos[0] - startPos[0] + pos[1] - startPos[1];
+
+      zoom = Math.round(Math.max(50, Math.max(0, initialZoom + delta / 10)));
+
+      document.body.style.setProperty('---zoom', zoom.toString());
+      window.dispatchEvent(new Event('resize'));
+      setZoom(zoom);
+      // saveZoom();
+    };
+
+    document.body.classList.add('resizing');
+
+    document.addEventListener(mousemoveEvent, resize);
+
+    document.addEventListener(
+      mouseupEvent,
+      () => {
+        document.removeEventListener(mousemoveEvent, resize);
+        document.body.classList.remove('resizing');
+      },
+      { once: true },
+    );
+  };
+
+  el.addEventListener('touchstart', startResize, { passive: false });
+  el.addEventListener('mousedown', startResize, { passive: false });
+
+  // if (pref === ShowResizeHandle.OnlyAtStart) {
+  // const toggle = (ply: number) => el.classList.toggle('none', visible ? !visible(ply) : ply >= 2);
+  // toggle(ply);
+  // pubsub.on('ply', toggle);
+  // }
+}
+
+function eventPosition(e): [number, number] | undefined {
+  if (e.clientX || e.clientX === 0) return [e.clientX, e.clientY!];
+  if (e.targetTouches?.[0]) return [e.targetTouches[0].clientX, e.targetTouches[0].clientY];
+  return;
+}
+
+function setZoom(zoom: number) {
+  // ограничим [50..200]%, например
+  const z = Math.max(100, Math.min(200, zoom));
+  localStorage.setItem('lichess-dev.cge.zoom', String(z));
+  const px = (z / 100) * 320;
+  const boardEl = document.querySelector('.cg-wrap') as HTMLElement;
+  if (boardEl) {
+    boardEl.style.width = `${px}px`;
+    boardEl.style.height = `${px}px`;
+  }
+  document.body.dispatchEvent(new Event('chessground.resize'));
+}
 
 window.chess = new Chess();
 
@@ -49,6 +134,7 @@ const playComputerMove = (orig: Key, dest: Key): void => {
       premovable: {
         enabled: true,
       },
+
       // lastMove: currentPuzzle.expectedMove(),
       movable: {
         free: false,
@@ -57,7 +143,8 @@ const playComputerMove = (orig: Key, dest: Key): void => {
       },
     });
     currentPuzzle.moveIndex++;
-  }, 3000);
+    site.sound.play(`move`, 1);
+  }, 300);
 };
 
 const playUserMove = (orig: Key, dest: Key, promotion?: Role): void =>
@@ -106,6 +193,7 @@ const playUci = (uci: Uci, dest: string): void => {
     }
     console.log(`isOver: ${window.currentPuzzle.isOver()}`);
   }
+  site.sound.play(`move`, 1);
   return;
 };
 
@@ -128,6 +216,9 @@ export const autoSwitch: Unit = {
           },
           events: {
             move: userMove,
+            insert(elements) {
+              resizeHandle(elements, true, 0, true);
+            },
           },
         };
       },
@@ -141,6 +232,7 @@ export const autoSwitch: Unit = {
     ];
     const cg = Chessground(cont, configs[0]());
     window.cg = cg;
+    setZoom(initialZoom);
     // const delay = 2000;
     // let it = 0;
     // function run() {

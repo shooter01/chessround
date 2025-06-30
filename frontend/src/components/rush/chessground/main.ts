@@ -7,6 +7,7 @@ import { PromotionCtrl, WithGround } from './promotionCtrl';
 import { initialGround } from './ground.ts';
 // import { withGround } from './utilPromotion';
 export type Color = 'white' | 'black';
+import SvgIcon from '@mui/material/SvgIcon';
 
 const withGround: WithGround = (f) => {
   const g = window.cg as Api | undefined;
@@ -56,19 +57,6 @@ export function run(element: Element): {
     document.body.style.cursor = 'ew-resize';
     window.addEventListener('mousemove', onDrag);
     window.addEventListener('mouseup', stopDrag);
-  }
-
-  function setZoom(zoom: number) {
-    // ограничим [50..200]%, например
-    const z = Math.max(50, Math.min(200, zoom));
-    localStorage.setItem('lichess-dev.cge.zoom', String(z));
-    const px = (z / 100) * 320;
-    const boardEl = document.querySelector('.cg-wrap') as HTMLElement;
-    if (boardEl) {
-      boardEl.style.width = `${px}px`;
-      boardEl.style.height = `${px}px`;
-    }
-    document.body.dispatchEvent(new Event('chessground.resize'));
   }
 
   function redraw() {
@@ -150,29 +138,28 @@ export function run(element: Element): {
           // 2) А теперь _рядом_ с доской_ рендерим оверлей превращения:
 
           // 3) Ваши кнопки (ориентация, зум и т.д.)
-
-          // h('div.resize-handle.flyout-btn', { on: { mousedown: startDrag } }, [
-          //   // А тут — иконка «растянуть/сжать»
-          //   h(
-          //     'svg',
-          //     {
-          //       attrs: {
-          //         width: '16',
-          //         height: '16',
-          //         viewBox: '0 0 24 24',
-          //         fill: 'none',
-          //         stroke: '#333',
-          //         'stroke-width': '2',
-          //         'stroke-linecap': 'round',
-          //         'stroke-linejoin': 'round',
-          //       },
-          //     },
-          //     [
-          //       h('polyline', { attrs: { points: '4 17 10 11 4 5' } }),
-          //       h('polyline', { attrs: { points: '20 17 14 11 20 5' } }),
-          //     ],
-          //   ),
-          // ]),
+        ]),
+        h('div.resize-handle.flyout-btn', { on: { mousedown: startDrag } }, [
+          // А тут — иконка «растянуть/сжать»
+          h(
+            'svg',
+            {
+              attrs: {
+                width: '16',
+                height: '16',
+                viewBox: '0 0 24 24',
+                fill: 'none',
+                stroke: '#333',
+                'stroke-width': '2',
+                'stroke-linecap': 'round',
+                'stroke-linejoin': 'round',
+              },
+            },
+            [
+              h('polyline', { attrs: { points: '4 17 10 11 4 5' } }),
+              h('polyline', { attrs: { points: '20 17 14 11 20 5' } }),
+            ],
+          ),
         ]),
         h('div.toggle-orient.flyout-btn', { on: { click: () => cg.toggleOrientation() } }, [
           // Вставляем точно такой же SVG, как вы бы писали в чистом HTML
