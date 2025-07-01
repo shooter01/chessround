@@ -7,7 +7,6 @@ import { PromotionCtrl, WithGround } from './promotionCtrl';
 import { initialGround } from './ground.ts';
 // import { withGround } from './utilPromotion';
 export type Color = 'white' | 'black';
-import SvgIcon from '@mui/material/SvgIcon';
 
 const withGround: WithGround = (f) => {
   const g = window.cg as Api | undefined;

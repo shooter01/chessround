@@ -7,8 +7,9 @@ import { Color, Key } from 'chessground/types';
 import { Chess, SQUARES } from 'chess.js';
 import { glyphToSvg } from './glyphs';
 import sound from './sound';
-
-const site = window.site || {};
+import { lastMoveDrop } from './zh';
+import { opposite, parseUci } from 'chessops/util';
+window.site = window.site || {};
 // site.load is initialized in site.inline.ts (body script)
 // site.manifest is fetched
 // site.info, site.debug are populated by ui/build
@@ -16,6 +17,8 @@ const site = window.site || {};
 // window.lichess is initialized in ui/api/src/api.ts
 site.sound = sound;
 
+site.sound.load(`error`, site.sound.url(`/sound/Error3.mp3`));
+site.sound.load(`correct`, site.sound.url(`/sound/Correct.mp3`));
 site.sound.load(`move`, site.sound.url(`/sound/Move.mp3`));
 site.sound.load(`capture`, site.sound.url(`/sound/Capture.mp3`));
 
@@ -112,8 +115,9 @@ export function toColor(chess: Chess): Color {
   return chess.turn() === 'w' ? 'white' : 'black';
 }
 
-const userMove = (orig: Key, dest: Key): void => {
-  console.log(`User move: ${orig} to ${dest}`);
+const userMove = (orig: Key, dest: Key, capture: Key): void => {
+  console.log(`User move: ${orig} to ${dest}`, capture);
+  console.log(currentPuzzle);
 
   const isPromoting = window.promotion.start(orig, dest, {
     submit: playUserMove,
@@ -121,10 +125,16 @@ const userMove = (orig: Key, dest: Key): void => {
   if (!isPromoting) playUserMove(orig, dest);
 };
 
-const playComputerMove = (orig: Key, dest: Key): void => {
+window.playComputerMove = (orig: Key, dest: Key): void => {
+  console.log(`Computer move: ${orig} to ${dest}`);
+
   setTimeout(() => {
-    window.chess.move(currentPuzzle.expectedMove());
+    const move = window.chess.move(currentPuzzle.expectedMove());
+    console.log(move);
+
     window.cg.set({
+      check: chess.isCheck(),
+      lastMove: [move.from, move.to],
       fen: window.chess.fen(),
       turnColor: toColor(window.chess),
       highlight: {
@@ -135,16 +145,24 @@ const playComputerMove = (orig: Key, dest: Key): void => {
         enabled: true,
       },
 
-      // lastMove: currentPuzzle.expectedMove(),
+      lastMove: currentPuzzle.expectedMove(),
       movable: {
         free: false,
         color: toColor(window.chess),
         dests: toDests(window.chess),
       },
     });
+
+    if (move.captured) {
+      site.sound.play(`capture`, 1);
+    } else {
+      site.sound.play(`move`, 1);
+    }
+
     currentPuzzle.moveIndex++;
-    site.sound.play(`move`, 1);
-  }, 300);
+    cg.playPremove();
+    // if (san.includes('+')) sounds.push(`${prefix}Check`);
+  }, 3000);
 };
 
 const playUserMove = (orig: Key, dest: Key, promotion?: Role): void =>
@@ -160,6 +178,8 @@ const playUci = (uci: Uci, dest: string): void => {
   } else {
     window.addCorrectPuzzle(window.currentPuzzle, false);
     window.setNextPuzzle();
+    site.sound.play(`error`, 1);
+
     return;
   }
 
@@ -168,34 +188,64 @@ const playUci = (uci: Uci, dest: string): void => {
   if (!window.promoting) {
     window.cg.set({
       fen: chess.fen(),
-      turnColor: toColor(chess),
-      highlight: {
-        lastMove: true,
-        check: true,
-      },
-      premovable: {
-        enabled: true,
-      },
-      // check: true,
-      movable: {
-        free: false,
-        color: toColor(chess),
-        dests: toDests(chess),
-      },
+      // turnColor: toColor(chess),
+      // check: chess.isCheck(),
+      // movable: {
+      //   free: false,
+
+      //   color: toColor(chess),
+      //   dests: toDests(chess),
+      // },
+      // highlight: {
+      //   lastMove: true,
+      //   check: true,
+      // },
+      // premovable: {
+      //   enabled: true,
+      // },
     });
     window.cg.setAutoShapes([{ orig: dest, customSvg: glyphToSvg[sign] }]);
     window.currentPuzzle.moveIndex++;
     if (window.currentPuzzle.isOver()) {
       window.setNextPuzzle();
       window.addCorrectPuzzle(window.currentPuzzle, true);
+      site.sound.play(`correct`, 1);
     } else {
-      playComputerMove();
+      window.playComputerMove();
     }
     console.log(`isOver: ${window.currentPuzzle.isOver()}`);
   }
-  site.sound.play(`move`, 1);
+
+  if (move.captured) {
+    site.sound.play(`capture`, 1);
+  } else {
+    site.sound.play(`move`, 1);
+  }
   return;
 };
+
+// window.setPosition = () => {
+//   window.cg.set({
+//     fen: chess.fen(),
+//     check: chess.isCheck(),
+//     highlight: {
+//       check: true,
+//     },
+//     turnColor: toColor(chess),
+//     movable: {
+//       free: false,
+
+//       color: toColor(chess),
+//       dests: toDests(chess),
+//     },
+//     events: {
+//       move: userMove,
+//       insert(elements) {
+//         resizeHandle(elements, true, 0, true);
+//       },
+//     },
+//   });
+// };
 
 export const autoSwitch: Unit = {
   name: 'FEN: switch (puzzle bug)',
@@ -206,8 +256,14 @@ export const autoSwitch: Unit = {
 
         return {
           fen: chess.fen(),
-
+          check: chess.isCheck(),
+          highlight: {
+            check: true,
+          },
           turnColor: toColor(chess),
+          // premovable: {
+          //   enabled: true,
+          // },
           movable: {
             free: false,
 

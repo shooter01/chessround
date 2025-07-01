@@ -91,30 +91,16 @@ export default function PuzzleRush() {
     window.puzzlesCounter++;
     window.currentPuzzle = new CurrentPuzzle(puzzlesCounter, puzzles[puzzlesCounter]);
     window.chess.load(puzzles[puzzlesCounter].fen);
+    console.log(chess.turn(), currentPuzzle.pov);
 
     window.cg.set({
-      viewOnly: false,
       fen: window.chess.fen(),
-      turnColor: toColor(window.chess),
+      turnColor: chess.turn() === 'w' ? 'white' : 'black',
     });
 
     setTimeout(() => {
-      window.chess.move(currentPuzzle.expectedMove());
-      window.cg.set({
-        fen: window.chess.fen(),
-        turnColor: toColor(window.chess),
-        premovable: {
-          enabled: true,
-        },
-        movable: {
-          // free: false,
-          color: toColor(window.chess),
-          // color: 'white',
-          dests: toDests(window.chess),
-        },
-      });
-      currentPuzzle.moveIndex++;
-    }, 1000);
+      if (window.puzzlesCounter !== 0) window.playComputerMove();
+    }, 500);
   };
 
   const [correctPuzzles, setCorrectPuzzles] = useState<CorrectPuzzle[]>([]);
@@ -169,7 +155,14 @@ export default function PuzzleRush() {
           }}
         >
           <Board promoVisible={promoVisible} />
-          {showCountdown && <CountdownOverlay onComplete={() => setShowCountdown(false)} />}
+          {showCountdown && (
+            <CountdownOverlay
+              onComplete={() => {
+                setShowCountdown(false);
+                window.playComputerMove();
+              }}
+            />
+          )}
           {showResults && (
             <div className="rcard-overlay">
               <ResultCard

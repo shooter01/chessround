@@ -8,6 +8,9 @@ interface CountdownOverlayProps {
   onComplete?: () => void;
 }
 
+site.sound.load(`tick`, site.sound.url(`/sound/tick.mp3`));
+site.sound.load(`start`, site.sound.url(`/sound/start.mp3`));
+
 /**
  * Считает 3 → 2 → 1 → GO
  * иконка ракеты вместо “0”
@@ -18,6 +21,11 @@ const CountdownOverlay: React.FC<CountdownOverlayProps> = ({ onComplete }) => {
 
   useEffect(() => {
     if (count < 0) return;
+    if (count > 0) {
+      site.sound.play(`tick`, 1);
+    } else {
+      site.sound.play(`start`, 1);
+    }
 
     const timer = window.setTimeout(() => {
       if (count > 0) {
