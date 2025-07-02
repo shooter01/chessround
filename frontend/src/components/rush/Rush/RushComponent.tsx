@@ -88,6 +88,8 @@ export default function PuzzleRush() {
   };
 
   window.setNextPuzzle = async () => {
+    window.cg.setAutoShapes([]);
+
     window.puzzlesCounter++;
     window.currentPuzzle = new CurrentPuzzle(puzzlesCounter, puzzles[puzzlesCounter]);
     window.chess.load(puzzles[puzzlesCounter].fen);

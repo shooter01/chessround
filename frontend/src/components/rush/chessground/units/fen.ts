@@ -207,6 +207,7 @@ window.setPosition = (lastMove) => {
     fen: window.chess.fen(),
     lastMove: lastMove ? lastMove : null,
     check: window.chess.isCheck(),
+    orientation: currentPuzzle.pov,
     highlight: {
       check: true,
     },
