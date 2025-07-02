@@ -156,7 +156,7 @@ window.playComputerMove = (orig: Key, dest: Key): void => {
     currentPuzzle.moveIndex++;
     cg.playPremove();
     // if (san.includes('+')) sounds.push(`${prefix}Check`);
-  }, 2000);
+  }, 300);
 };
 
 const playUserMove = (orig: Key, dest: Key, promotion?: Role): void =>
@@ -170,8 +170,12 @@ const playUci = (uci: Uci, dest: string): void => {
   if (uci == window.currentPuzzle.expectedMove()) {
     sign = '✓';
   } else {
+    window.cg.setAutoShapes([{ orig: dest, customSvg: glyphToSvg[sign] }]);
+
     window.addCorrectPuzzle(window.currentPuzzle, false);
-    window.setNextPuzzle();
+    setTimeout(() => {
+      window.setNextPuzzle();
+    }, 300);
     site.sound.play(`error`, 1);
 
     return;
@@ -179,12 +183,24 @@ const playUci = (uci: Uci, dest: string): void => {
 
   const move = chess.move(uci);
 
+  window.cg.set({
+    lastMove: [move.from, move.to],
+    check: window.chess.isCheck(),
+    highlight: {
+      check: true,
+    },
+  });
+
   if (!window.promoting) {
     window.cg.setAutoShapes([{ orig: dest, customSvg: glyphToSvg[sign] }]);
 
     window.currentPuzzle.moveIndex++;
     if (window.currentPuzzle.isOver()) {
-      window.setNextPuzzle();
+      site.sound.play(`correct`, 1);
+
+      setTimeout(() => {
+        window.setNextPuzzle();
+      }, 300);
       window.addCorrectPuzzle(window.currentPuzzle, true);
     } else {
       // window.setPosition();
@@ -207,6 +223,9 @@ window.setPosition = (lastMove) => {
     fen: window.chess.fen(),
     lastMove: lastMove ? lastMove : null,
     check: window.chess.isCheck(),
+    animation: {
+      duration: 100,
+    },
     orientation: currentPuzzle.pov,
     highlight: {
       check: true,

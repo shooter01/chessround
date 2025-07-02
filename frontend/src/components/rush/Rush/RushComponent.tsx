@@ -18,6 +18,7 @@ import {
   Avatar,
   useTheme,
 } from '@mui/material';
+import { Chessground } from 'chessground';
 
 import { createTimes, puzzles, mockPlayers } from './mocks/mock.ts';
 import Countdown from 'react-countdown';
@@ -111,7 +112,7 @@ export default function PuzzleRush() {
 
     setTimeout(() => {
       if (window.puzzlesCounter !== 0) window.playComputerMove();
-    }, 1000);
+    }, 300);
   };
 
   const [correctPuzzles, setCorrectPuzzles] = useState<CorrectPuzzle[]>([]);
