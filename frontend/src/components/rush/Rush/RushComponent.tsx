@@ -93,14 +93,23 @@ export default function PuzzleRush() {
     window.chess.load(puzzles[puzzlesCounter].fen);
     console.log(chess.turn(), currentPuzzle.pov);
 
-    window.cg.set({
-      fen: window.chess.fen(),
-      turnColor: chess.turn() === 'w' ? 'white' : 'black',
-    });
+    // window.cg.set({
+    //   fen: window.chess.fen(),
+    //   premovable: {
+    //     enabled: true,
+    //   },
+    //   movable: {
+    //     showDests: true,
+    //     free: false,
+    //     color: currentPuzzle.pov,
+    //   },
+    // });
+
+    window.setPosition();
 
     setTimeout(() => {
       if (window.puzzlesCounter !== 0) window.playComputerMove();
-    }, 500);
+    }, 1000);
   };
 
   const [correctPuzzles, setCorrectPuzzles] = useState<CorrectPuzzle[]>([]);

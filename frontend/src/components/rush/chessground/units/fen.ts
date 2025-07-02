@@ -133,25 +133,19 @@ window.playComputerMove = (orig: Key, dest: Key): void => {
     console.log(move);
 
     window.cg.set({
-      check: chess.isCheck(),
-      lastMove: [move.from, move.to],
       fen: window.chess.fen(),
       turnColor: toColor(window.chess),
-      highlight: {
-        lastMove: true,
-        check: true,
-      },
       premovable: {
         enabled: true,
       },
-
-      lastMove: currentPuzzle.expectedMove(),
       movable: {
         free: false,
-        color: toColor(window.chess),
+        color: currentPuzzle.pov,
         dests: toDests(window.chess),
       },
     });
+
+    window.setPosition([move.from, move.to]);
 
     if (move.captured) {
       site.sound.play(`capture`, 1);
@@ -162,7 +156,7 @@ window.playComputerMove = (orig: Key, dest: Key): void => {
     currentPuzzle.moveIndex++;
     cg.playPremove();
     // if (san.includes('+')) sounds.push(`${prefix}Check`);
-  }, 3000);
+  }, 2000);
 };
 
 const playUserMove = (orig: Key, dest: Key, promotion?: Role): void =>
@@ -186,31 +180,15 @@ const playUci = (uci: Uci, dest: string): void => {
   const move = chess.move(uci);
 
   if (!window.promoting) {
-    window.cg.set({
-      fen: chess.fen(),
-      // turnColor: toColor(chess),
-      // check: chess.isCheck(),
-      // movable: {
-      //   free: false,
-
-      //   color: toColor(chess),
-      //   dests: toDests(chess),
-      // },
-      // highlight: {
-      //   lastMove: true,
-      //   check: true,
-      // },
-      // premovable: {
-      //   enabled: true,
-      // },
-    });
     window.cg.setAutoShapes([{ orig: dest, customSvg: glyphToSvg[sign] }]);
+
     window.currentPuzzle.moveIndex++;
     if (window.currentPuzzle.isOver()) {
       window.setNextPuzzle();
       window.addCorrectPuzzle(window.currentPuzzle, true);
-      site.sound.play(`correct`, 1);
     } else {
+      // window.setPosition();
+
       window.playComputerMove();
     }
     console.log(`isOver: ${window.currentPuzzle.isOver()}`);
@@ -224,28 +202,32 @@ const playUci = (uci: Uci, dest: string): void => {
   return;
 };
 
-// window.setPosition = () => {
-//   window.cg.set({
-//     fen: chess.fen(),
-//     check: chess.isCheck(),
-//     highlight: {
-//       check: true,
-//     },
-//     turnColor: toColor(chess),
-//     movable: {
-//       free: false,
-
-//       color: toColor(chess),
-//       dests: toDests(chess),
-//     },
-//     events: {
-//       move: userMove,
-//       insert(elements) {
-//         resizeHandle(elements, true, 0, true);
-//       },
-//     },
-//   });
-// };
+window.setPosition = (lastMove) => {
+  window.cg.set({
+    fen: window.chess.fen(),
+    lastMove: lastMove ? lastMove : null,
+    check: window.chess.isCheck(),
+    highlight: {
+      check: true,
+    },
+    turnColor: window.chess.turn() === 'w' ? 'white' : 'black',
+    premovable: {
+      enabled: true,
+    },
+    movable: {
+      showDests: true,
+      free: false,
+      color: currentPuzzle.pov,
+      dests: toDests(window.chess),
+    },
+    events: {
+      move: userMove,
+      insert(elements) {
+        resizeHandle(elements, true, 0, true);
+      },
+    },
+  });
+};
 
 export const autoSwitch: Unit = {
   name: 'FEN: switch (puzzle bug)',
@@ -256,26 +238,24 @@ export const autoSwitch: Unit = {
 
         return {
           fen: chess.fen(),
-          check: chess.isCheck(),
-          highlight: {
-            check: true,
-          },
-          turnColor: toColor(chess),
+          // check: chess.isCheck(),
+          // highlight: {
+          //   check: true,
+          // },
+          // turnColor: toColor(chess),
           // premovable: {
           //   enabled: true,
           // },
-          movable: {
-            free: false,
-
-            color: toColor(chess),
-            dests: toDests(chess),
-          },
-          events: {
-            move: userMove,
-            insert(elements) {
-              resizeHandle(elements, true, 0, true);
-            },
-          },
+          // movable: {
+          //   free: false,
+          //   dests: toDests(chess),
+          // },
+          // events: {
+          //   move: userMove,
+          //   insert(elements) {
+          //     resizeHandle(elements, true, 0, true);
+          //   },
+          // },
         };
       },
       // () => {
