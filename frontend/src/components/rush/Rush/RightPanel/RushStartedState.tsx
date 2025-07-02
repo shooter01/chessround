@@ -36,10 +36,11 @@ import Timer from '../components/Timer/Timer.js';
 export default function RushStartedState({
   isStarted = false,
   loading = false,
-  pov = 'white',
   correctPuzzles = [],
   countdownRef,
   setShowResults,
+  rushModeCounter,
+  pov,
   setIsStarted,
   showCountdown,
 }) {
@@ -54,11 +55,6 @@ export default function RushStartedState({
   const handleMainTab = (_: any, v: string) => setMainTab(v as any);
   const handleBoardTab = (_: any, v: string) => setBoardTab(v as any);
   const handleRange = (e: SelectChangeEvent) => setRange(e.target.value as any);
-  
-  // Создаем массив times с переводами
-  const times = createTimes(t);
-  
-  console.log(pov);
 
   return (
     <Box
@@ -79,18 +75,11 @@ export default function RushStartedState({
       }}
     >
       <CustomInfoCard state={pov} text={`${pov.charAt(0).toUpperCase() + pov.slice(1)} to move`} />
-      {/* <CustomInfoCard
-        icon={ExtensionIcon}
-        title={t('rush.started.title')}
-        subtitle={t('rush.started.subtitle')}
-        onAction={() => console.log('Action clicked')}
-        status={loading ? 'loading' : 'default'}
-      /> */}
       <Box sx={{ textAlign: 'center', mt: 4 }}>
-        {!showCountdown && (
+        {!showCountdown && rushModeCounter !== 0 && (
           <Timer
             countdownRef={countdownRef}
-            durationMs={200000}
+            durationMs={rushModeCounter}
             onStart={() => console.log('🔔 Timer has started')}
             onComplete={() => {
               console.log('🏁 Timer finished');

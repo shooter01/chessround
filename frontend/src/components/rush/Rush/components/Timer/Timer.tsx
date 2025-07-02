@@ -1,19 +1,18 @@
-import React, { useRef, useEffect } from 'react';
+// Timer.tsx
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Icon } from '@iconify/react';
 import stopwatch from '@iconify-icons/twemoji/stopwatch';
 import Countdown, { CountdownRendererFn } from 'react-countdown';
 import './timer.css';
 
 interface TimerProps {
-  /** В миллисекундах, сколько должно идти обратный отсчёт */
+  /** В миллисекундах */
   durationMs: number;
-  /** Колбэк, вызываемый один раз при старте отсчёта */
   onStart?: () => void;
-  /** Колбэк, вызываемый при завершении */
   onComplete?: () => void;
 }
 
-/** Простая вёрстка цифр М:СС */
+// Фабрика рендера mm:ss
 const renderer: CountdownRendererFn = ({ minutes, seconds, completed }) => {
   if (completed) return <span>00:00</span>;
   return (
@@ -23,8 +22,18 @@ const renderer: CountdownRendererFn = ({ minutes, seconds, completed }) => {
   );
 };
 
-export default function Timer({ countdownRef, durationMs, onStart, onComplete }: TimerProps) {
-  // ref на инстанс Countdown
+const Timer = forwardRef<any, TimerProps>(({ durationMs, onStart, onComplete }, ref) => {
+  // 1) Однократно (при маунте) и при каждом change durationMs
+  const [targetDate, setTargetDate] = useState(() => Date.now() + durationMs);
+
+  useEffect(() => {
+    setTargetDate(Date.now() + durationMs);
+  }, [durationMs]);
+
+  // Если вам нужен доступ к методам Countdown через ref
+  useImperativeHandle(ref, () => countdownRef.current);
+
+  const countdownRef = React.useRef<any>(null);
 
   return (
     <div className="timer">
@@ -32,18 +41,19 @@ export default function Timer({ countdownRef, durationMs, onStart, onComplete }:
       <div className="timer__text">
         <Countdown
           ref={countdownRef}
-          date={Date.now() + durationMs}
+          date={targetDate}
           renderer={renderer}
           onStart={() => {
-            console.log('Countdown started');
             onStart?.();
           }}
           onComplete={() => {
-            console.log('Countdown completed');
             onComplete?.();
           }}
         />
       </div>
     </div>
   );
-}
+});
+
+// 2) Обёртка React.memo — перерендерит лишь при изменении durationMs / onStart / onComplete
+export default React.memo(Timer);

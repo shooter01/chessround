@@ -18,7 +18,7 @@ window.site = window.site || {};
 site.sound = sound;
 
 site.sound.load(`error`, site.sound.url(`/sound/Error3.mp3`));
-site.sound.load(`correct`, site.sound.url(`/sound/Correct.mp3`));
+site.sound.load(`correct`, site.sound.url(`/sound/correct2.mp3`));
 site.sound.load(`move`, site.sound.url(`/sound/Move.mp3`));
 site.sound.load(`capture`, site.sound.url(`/sound/Capture.mp3`));
 
@@ -242,9 +242,6 @@ window.setPosition = (lastMove) => {
     },
     events: {
       move: userMove,
-      insert(elements) {
-        resizeHandle(elements, true, 0, true);
-      },
     },
   });
 };
@@ -270,12 +267,12 @@ export const autoSwitch: Unit = {
           //   free: false,
           //   dests: toDests(chess),
           // },
-          // events: {
-          //   move: userMove,
-          //   insert(elements) {
-          //     resizeHandle(elements, true, 0, true);
-          //   },
-          // },
+          events: {
+            move: userMove,
+            insert(elements) {
+              resizeHandle(elements, true, 0, true);
+            },
+          },
         };
       },
       // () => {

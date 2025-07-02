@@ -42,6 +42,7 @@ import ResultCard from './components/ResultCard/ResultCard.jsx';
 import RushDefaultState from './RightPanel/DefaultState.tsx';
 import RushStartedState from './RightPanel/RushStartedState.tsx';
 import { lastMoveDrop } from '../chessground/units/zh.ts';
+let canChangePuzzle = true;
 
 declare global {
   interface Window {
@@ -63,7 +64,14 @@ window.currentPuzzle;
 export default function PuzzleRush() {
   const navigate = useNavigate();
 
+  const [pov, setPov] = useState<'white' | 'black'>('white');
+  const [showResults, setShowResults] = useState<boolean>(false);
+
+  const countdownRef = useRef<Countdown>(null);
+  const [showCountdown, setShowCountdown] = useState(false);
+
   const [loading, setLoading] = useState(false);
+  const [rushModeCounter, setRushModeCounter] = useState(300000);
   const [isStarted, setIsStarted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,8 +81,8 @@ export default function PuzzleRush() {
   const limit = 5;
 
   const [promoVisible, setPromoVisible] = useState(false);
-
   window.handleStart = async () => {
+    canChangePuzzle = true;
     setShowResults(false);
     setCorrectPuzzles([]);
     setShowCountdown(true);
@@ -94,20 +102,10 @@ export default function PuzzleRush() {
     window.puzzlesCounter++;
     window.currentPuzzle = new CurrentPuzzle(puzzlesCounter, puzzles[puzzlesCounter]);
     window.chess.load(puzzles[puzzlesCounter].fen);
-    console.log(chess.turn(), currentPuzzle.pov);
-
-    // window.cg.set({
-    //   fen: window.chess.fen(),
-    //   premovable: {
-    //     enabled: true,
-    //   },
-    //   movable: {
-    //     showDests: true,
-    //     free: false,
-    //     color: currentPuzzle.pov,
-    //   },
-    // });
-
+    setPov(window.currentPuzzle.pov);
+    if (!canChangePuzzle) {
+      return;
+    }
     window.setPosition();
 
     setTimeout(() => {
@@ -130,11 +128,18 @@ export default function PuzzleRush() {
       ]);
     };
   }, []);
+  useEffect(() => {
+    // Count how many puzzles have result === false
+    const falseCount = correctPuzzles.filter((p) => p.result === false).length;
 
-  const [showResults, setShowResults] = useState<boolean>(false);
-
-  const countdownRef = useRef<Countdown>(null);
-  const [showCountdown, setShowCountdown] = useState(false);
+    if (falseCount >= 3) {
+      canChangePuzzle = false;
+      setIsStarted(false);
+      setTimeout(() => {
+        setShowResults(true);
+      }, 300);
+    }
+  }, [correctPuzzles, setShowResults, setIsStarted]);
 
   return (
     <Container
@@ -214,6 +219,7 @@ export default function PuzzleRush() {
                 loading={loading}
                 correctPuzzles={correctPuzzles}
                 countdownRef={countdownRef}
+                setRushModeCounter={setRushModeCounter}
                 setShowResults={setShowResults}
                 setIsStarted={setIsStarted}
                 showCountdown={showCountdown}
@@ -222,9 +228,10 @@ export default function PuzzleRush() {
               <RushStartedState
                 isStarted={isStarted}
                 loading={loading}
-                pov={currentPuzzle.pov}
+                pov={pov}
                 correctPuzzles={correctPuzzles}
                 countdownRef={countdownRef}
+                rushModeCounter={rushModeCounter}
                 setShowResults={setShowResults}
                 setIsStarted={setIsStarted}
                 showCountdown={showCountdown}

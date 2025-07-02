@@ -42,6 +42,7 @@ export default function RushDefaultState({
   loading = false,
   correctPuzzles = [],
   countdownRef,
+  setRushModeCounter,
   setShowResults,
   setIsStarted,
   showCountdown,
@@ -135,7 +136,11 @@ export default function RushDefaultState({
           </Tabs>
 
           {mainTab === 'play' && (
-            <PlayTab loading={loading} onStart={handleStart} />
+            <PlayTab
+              loading={loading}
+              setRushModeCounter={setRushModeCounter}
+              onStart={handleStart}
+            />
           )}
 
           {mainTab === 'leaderboard' && (
