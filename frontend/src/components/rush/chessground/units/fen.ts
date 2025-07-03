@@ -17,6 +17,8 @@ window.site = window.site || {};
 // window.lichess is initialized in ui/api/src/api.ts
 site.sound = sound;
 
+const volFactor = parseFloat(localStorage.getItem('app-volume-factor') || '1');
+
 site.sound.load(`error`, site.sound.url(`/sound/Error3.mp3`));
 site.sound.load(`correct`, site.sound.url(`/sound/correct2.mp3`));
 site.sound.load(`move`, site.sound.url(`/sound/Move.mp3`));
@@ -148,9 +150,9 @@ window.playComputerMove = (orig: Key, dest: Key): void => {
     window.setPosition([move.from, move.to]);
 
     if (move.captured) {
-      site.sound.play(`capture`, 1);
+      site.sound.play(`capture`, parseFloat(localStorage.getItem('app-volume-factor') || '1'));
     } else {
-      site.sound.play(`move`, 1);
+      site.sound.play(`move`, parseFloat(localStorage.getItem('app-volume-factor') || '1'));
     }
 
     currentPuzzle.moveIndex++;
@@ -177,7 +179,7 @@ const playUci = (uci: Uci, dest: string): void => {
       window.setNextPuzzle();
     }, 300);
     window.setCorrect(false);
-    site.sound.play(`error`, 1);
+    site.sound.play(`error`, parseFloat(localStorage.getItem('app-volume-factor') || '1'));
 
     return;
   }
@@ -199,7 +201,7 @@ const playUci = (uci: Uci, dest: string): void => {
     if (window.currentPuzzle.isOver()) {
       window.setCorrect(true);
 
-      site.sound.play(`correct`, 1);
+      site.sound.play(`correct`, parseFloat(localStorage.getItem('app-volume-factor') || '1'));
 
       setTimeout(() => {
         window.setNextPuzzle();
@@ -214,9 +216,9 @@ const playUci = (uci: Uci, dest: string): void => {
   }
 
   if (move.captured) {
-    site.sound.play(`capture`, 1);
+    site.sound.play(`capture`, parseFloat(localStorage.getItem('app-volume-factor') || '1'));
   } else {
-    site.sound.play(`move`, 1);
+    site.sound.play(`move`, parseFloat(localStorage.getItem('app-volume-factor') || '1'));
   }
   return;
 };

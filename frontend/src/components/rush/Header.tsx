@@ -26,6 +26,8 @@ import { ColorModeContext } from './context/ColorModeContext';
 import Logo from './components/Logo/Logo';
 import LanguageSelector from './components/LanguageSelector/LanguageSelector';
 import VolumeControl from './components/VolumeControl/VolumeControl';
+import PieceSelector from './components/PieceSelector/PieceSelector';
+import BoardSelector from './components/BoardSelector/BoardSelector';
 
 // translation keys for menu items
 const menuKeys = [
@@ -143,6 +145,8 @@ export default function TransparentHeaderWithDrawer() {
             <LanguageSelector />
 
             <VolumeControl />
+            <PieceSelector />
+            <BoardSelector />
           </Toolbar>
         </Container>
       </AppBar>

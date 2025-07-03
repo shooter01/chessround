@@ -9,7 +9,7 @@ import {
   Volume2 as HighIcon,
 } from 'lucide-react';
 
-const STORAGE_KEY = 'app-volume-level';
+const STORAGE_KEY = 'app-volume-factor';
 
 export default function VolumeControl() {
   const [volume, setVolume] = useState<number>(100);
@@ -17,13 +17,16 @@ export default function VolumeControl() {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
   const closeTimer = useRef<number>();
+  const prevVolume = useRef<number>(volume || 50);
 
   useEffect(() => {
+    // при старте читаем из localStorage
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved !== null) {
       const num = parseInt(saved, 10);
       setVolume(num);
-      setMuted(num === 0);
+      // сразу сохраняем ненулевое значение
+      if (num > 0) prevVolume.current = num;
     }
     return () => {
       if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -35,17 +38,23 @@ export default function VolumeControl() {
     setVolume(v);
     setMuted(v === 0);
     localStorage.setItem(STORAGE_KEY, String(v));
+    localStorage.setItem(STORAGE_KEY, String(v / 100)); // <-- нововведение
   }, []);
 
   const toggleMute = () => {
-    if (muted) {
-      const restored = volume > 0 ? volume : 50;
+    if (volume === 0) {
+      // восстанавливаем предыдущую громкость
+      const restored = prevVolume.current > 0 ? prevVolume.current : 50;
       setVolume(restored);
-      setMuted(false);
+      // обновляем localStorage
       localStorage.setItem(STORAGE_KEY, String(restored));
+      localStorage.setItem(STORAGE_KEY, String(restored / 100));
     } else {
+      // запоминаем текущее ненулевое значение
+      prevVolume.current = volume;
       setVolume(0);
-      setMuted(true);
+      // сбрасываем в хранилище
+      localStorage.setItem(STORAGE_KEY, '0');
       localStorage.setItem(STORAGE_KEY, '0');
     }
   };
@@ -59,7 +68,8 @@ export default function VolumeControl() {
     closeTimer.current = window.setTimeout(() => setOpen(false), 150);
   };
 
-  const VolumeIcon = muted ? MuteIcon : volume < 33 ? LowIcon : volume < 66 ? MediumIcon : HighIcon;
+  const VolumeIcon =
+    volume === 0 ? MuteIcon : volume < 33 ? LowIcon : volume < 66 ? MediumIcon : HighIcon;
 
   return (
     <>

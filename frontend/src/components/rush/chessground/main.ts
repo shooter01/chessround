@@ -23,6 +23,8 @@ export function run(element: Element): {
   let vnode: VNode;
   let cg: Api;
   let unit: Unit;
+  window.addEventListener('themechange', () => redraw());
+  window.addEventListener('boardchange', () => redraw());
 
   // Контрол для звуков/сброса (по желанию)
   // const promotionCtrl = new PromotionCtrl(
@@ -38,25 +40,25 @@ export function run(element: Element): {
   let startX = 0;
   let startZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom')!) || 100;
 
-  function onDrag(e: MouseEvent) {
-    const dx = e.clientX - startX;
-    const newZoom = startZoom + dx * 0.5;
-    setZoom(newZoom);
-  }
-  function stopDrag() {
-    window.removeEventListener('mousemove', onDrag);
-    window.removeEventListener('mouseup', stopDrag);
-    document.body.style.cursor = '';
-    // сохранить новый зум
-    startZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom')!) || startZoom;
-  }
-  function startDrag(e: MouseEvent) {
-    e.preventDefault();
-    startX = e.clientX;
-    document.body.style.cursor = 'ew-resize';
-    window.addEventListener('mousemove', onDrag);
-    window.addEventListener('mouseup', stopDrag);
-  }
+  // function onDrag(e: MouseEvent) {
+  //   const dx = e.clientX - startX;
+  //   const newZoom = startZoom + dx * 0.5;
+  //   setZoom(newZoom);
+  // }
+  // function stopDrag() {
+  //   window.removeEventListener('mousemove', onDrag);
+  //   window.removeEventListener('mouseup', stopDrag);
+  //   document.body.style.cursor = '';
+  //   // сохранить новый зум
+  //   startZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom')!) || startZoom;
+  // }
+  // function startDrag(e: MouseEvent) {
+  //   e.preventDefault();
+  //   startX = e.clientX;
+  //   document.body.style.cursor = 'ew-resize';
+  //   window.addEventListener('mousemove', onDrag);
+  //   window.addEventListener('mouseup', stopDrag);
+  // }
 
   function redraw() {
     vnode = patch(vnode || element, render());
@@ -126,69 +128,76 @@ export function run(element: Element): {
 
   // Собираем VNode-дерево
   function render(): VNode {
+    // read saved themes (fallback to 'green' board, 'cburnett' pieces)
+    const boardTheme = localStorage.getItem('app-board-theme') || 'green';
+    const pieceTheme = localStorage.getItem('app-piece-theme') || 'cburnett';
+
+    // section gets two classes: one for board BG, one for piece set
+    const sectionClass = `section.${boardTheme}.${pieceTheme}`;
+
     return h('div#chessground-examples', [
-      h('section.green.merida', { style: { position: 'relative', overflow: 'visible' } }, [
+      h(sectionClass, { style: { position: 'relative', overflow: 'visible' } }, [
         h('div.cg-wrap-container', { style: { position: 'relative', overflow: 'visible' } }, [
-          // 1) Сам board-контейнер, в который Chessground вставит доску:
+          // 1) Chessground board container
           h('div.cg-wrap', {
             hook: { insert: runUnit, postpatch: runUnit },
           }),
           window.promotion.view(),
-          // 2) А теперь _рядом_ с доской_ рендерим оверлей превращения:
+          // …any overlays, promotion UI, etc.
+        ]),
 
-          // 3) Ваши кнопки (ориентация, зум и т.д.)
-        ]),
-        h('div.resize-handle.flyout-btn', { on: { mousedown: startDrag } }, [
-          // А тут — иконка «растянуть/сжать»
-          h(
-            'svg',
-            {
-              attrs: {
-                width: '16',
-                height: '16',
-                viewBox: '0 0 24 24',
-                fill: 'none',
-                stroke: '#333',
-                'stroke-width': '2',
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-              },
-            },
-            [
-              h('polyline', { attrs: { points: '4 17 10 11 4 5' } }),
-              h('polyline', { attrs: { points: '20 17 14 11 20 5' } }),
-            ],
-          ),
-        ]),
-        h('div.toggle-orient.flyout-btn', { on: { click: () => cg.toggleOrientation() } }, [
-          // Вставляем точно такой же SVG, как вы бы писали в чистом HTML
-          h(
-            'svg',
-            {
-              attrs: {
-                width: '16',
-                height: '16',
-                viewBox: '0 0 24 24',
-                fill: 'none',
-                stroke: '#333',
-                'stroke-width': '2',
-                'stroke-linecap': 'round',
-                'stroke-linejoin': 'round',
-              },
-            },
-            [
-              h('polyline', { attrs: { points: '23 4 23 10 17 10' } }),
-              h('polyline', { attrs: { points: '1 20 1 14 7 14' } }),
-              h('path', {
-                attrs: {
-                  d: 'M3.51 9a9 9 0 0114.13-3.36L23 10 M1 14l4.36 4.36A9 9 0 0020.49 15',
-                },
-              }),
-            ],
-          ),
-        ]),
-        // подпись под доской
-        // h('p', unit.name),
+        // zoom handle
+        // h('div.resize-handle.flyout-btn', { on: { mousedown: startDrag } }, [
+        //   h(
+        //     'svg',
+        //     {
+        //       attrs: {
+        //         width: '16',
+        //         height: '16',
+        //         viewBox: '0 0 24 24',
+        //         fill: 'none',
+        //         stroke: '#333',
+        //         'stroke-width': '2',
+        //         'stroke-linecap': 'round',
+        //         'stroke-linejoin': 'round',
+        //       },
+        //     },
+        //     [
+        //       h('polyline', { attrs: { points: '4 17 10 11 4 5' } }),
+        //       h('polyline', { attrs: { points: '20 17 14 11 20 5' } }),
+        //     ],
+        //   ),
+        // ]),
+
+        // orientation toggle
+        // h('div.toggle-orient.flyout-btn', { on: { click: () => cg.toggleOrientation() } }, [
+        //   h(
+        //     'svg',
+        //     {
+        //       attrs: {
+        //         width: '16',
+        //         height: '16',
+        //         viewBox: '0 0 24 24',
+        //         fill: 'none',
+        //         stroke: '#333',
+        //         'stroke-width': '2',
+        //         'stroke-linecap': 'round',
+        //         'stroke-linejoin': 'round',
+        //       },
+        //     },
+        //     [
+        //       h('polyline', { attrs: { points: '23 4 23 10 17 10' } }),
+        //       h('polyline', { attrs: { points: '1 20 1 14 7 14' } }),
+        //       h('path', {
+        //         attrs: {
+        //           d: 'M3.51 9a9 9 0 0114.13-3.36L23 10 ' + 'M1 14l4.36 4.36A9 9 0 0020.49 15',
+        //         },
+        //       }),
+        //     ],
+        //   ),
+        // ]),
+
+        // …any other controls
       ]),
     ]);
   }

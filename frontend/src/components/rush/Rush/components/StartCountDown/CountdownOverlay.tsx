@@ -22,9 +22,9 @@ const CountdownOverlay: React.FC<CountdownOverlayProps> = ({ onComplete }) => {
   useEffect(() => {
     if (count < 0) return;
     if (count > 0) {
-      site.sound.play(`tick`, 1);
+      site.sound.play(`tick`, parseFloat(localStorage.getItem('app-volume-factor') || '1'));
     } else {
-      site.sound.play(`start`, 1);
+      site.sound.play(`start`, parseFloat(localStorage.getItem('app-volume-factor') || '1'));
     }
 
     const timer = window.setTimeout(() => {
