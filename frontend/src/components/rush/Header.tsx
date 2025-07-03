@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next';
 import { ColorModeContext } from './context/ColorModeContext';
 import Logo from './components/Logo/Logo';
 import LanguageSelector from './components/LanguageSelector/LanguageSelector';
+import VolumeControl from './components/VolumeControl/VolumeControl';
 
 // translation keys for menu items
 const menuKeys = [
@@ -83,6 +84,7 @@ export default function TransparentHeaderWithDrawer() {
         color="transparent"
         elevation={0}
         sx={{
+          overflow: 'visible',
           backdropFilter: 'blur(10px)',
           backgroundColor: alpha(theme.palette.background.default, 0.3),
           color: theme.palette.text.primary,
@@ -139,6 +141,8 @@ export default function TransparentHeaderWithDrawer() {
               )}
             </IconButton>
             <LanguageSelector />
+
+            <VolumeControl />
           </Toolbar>
         </Container>
       </AppBar>
