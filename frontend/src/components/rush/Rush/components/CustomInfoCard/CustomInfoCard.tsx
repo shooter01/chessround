@@ -42,5 +42,5 @@ export default function CustomInfoCard({ state = 'white' }) {
   );
 
   // Для результата рендерим через портал в body
-  return isResult ? ReactDOM.createPortal(badge, document.body) : badge;
+  return badge;
 }

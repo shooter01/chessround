@@ -1,122 +1,71 @@
 .custom-card {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    padding: 8px 12px;
-    border-radius: 4px;
-    /* общий тонкий бордер */
-    border: 1px solid transparent;
-  }
-  /* Inline badges */
-  .custom-card.white {
-    background-color: #ffffff;
-    /* светлый бордер */
-    border-color: #d1d5db;
-  }
-  .custom-card.black {
-    background-color: #2d343a;
-    /* тёмный бордер */
-    border-color: #3a3f47;
-  }
-  
-  /* Full-width banner for results */
-  .custom-card.correct,
-  .custom-card.incorrect {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    padding: 12px 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: 0;
-    z-index: 1000;
-    /* убрать бордер на баннере */
-    border: none;
-  }
-  .custom-card.correct {
-    background-color: #4caf50;
-  }
-  .custom-card.incorrect {
-    background-color: #f44336;
-  }
-  /* Inline badges */
-  .custom-card.white {
-    background-color: #ffffff;
-  }
-  .custom-card.black {
-    background-color: #2d343a;
-  }
-  
-  /* Full-width banner for results */
-  .custom-card.correct,
-  .custom-card.incorrect {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    padding: 12px 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: 0;
-    z-index: 1000;
-  }
-  .custom-card.correct {
-    background-color: #4caf50;
-  }
-  .custom-card.incorrect {
-    background-color: #f44336;
-  }
-  
-  .custom-card-content {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .badge-square {
-    width: 2em;
-    height: 2em;
-    border-radius: 2px;
-    background-color: #ffffff;
-    /* тонкий бордер вокруг квадратика */
-    border: 1px solid #6b7280; 
-  }
-  .badge-square.black {
-    background-color: #1e1e1e;
-    /* белый бордер для чёрного квадратика */
-    border: 1px solid #ffffff;
-  }
-  .badge-square.black {
-    background-color: #1e1e1e;
-    border: 1px solid #ffffff;
-  }
-  
-  .badge-icon.correct,
-  .badge-icon.incorrect {
-    width: 1em;
-    height: 1em;
-    color: #ffffff;
-  }
-  
-  .badge-text {
-    font-size: 1.8rem;
-    font-weight: 600;
-    line-height: 1;
-  }
-  .badge-text.white {
-    color: #1e1e1e;
-  }
-  .badge-text.black,
-  .badge-text.correct {
-    color: #ffffff;
-  }
-  
-  /* Hide text for incorrect state (icon only) */
-  .custom-card.incorrect .badge-text {
-    display: none;
-  }
-  
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  margin-bottom: 16px;
+}
+
+.custom-card.white {
+  background-color: #ffffff;
+  border-color: #d1d5db;
+}
+.custom-card.black {
+  background-color: #2d343a;
+  border-color: #3a3f47;
+}
+
+/* Inline-style badge for correct and incorrect */
+.custom-card.correct {
+  background-color: #4caf50;
+  border-color: transparent;
+}
+.custom-card.incorrect {
+  background-color: #f44336;
+  border-color: transparent;
+}
+
+.custom-card-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge-square {
+  width: 2em;
+  height: 2em;
+  border-radius: 2px;
+  background-color: #ffffff;
+  border: 1px solid #6b7280;
+}
+.badge-square.black {
+  background-color: #1e1e1e;
+  border: 1px solid #ffffff;
+}
+
+.badge-icon.correct,
+.badge-icon.incorrect {
+  width: 1.5em;
+  height: 1.5em;
+  color: #ffffff;
+}
+
+.badge-text {
+  font-size: 1.8rem;
+  font-weight: 600;
+  line-height: 1;
+}
+.badge-text.white {
+  color: #1e1e1e;
+}
+.badge-text.black,
+.badge-text.correct {
+  color: #ffffff;
+}
+.custom-card.incorrect .badge-text {
+  display: none;
+}

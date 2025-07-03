@@ -176,6 +176,7 @@ const playUci = (uci: Uci, dest: string): void => {
     setTimeout(() => {
       window.setNextPuzzle();
     }, 300);
+    window.setCorrect(false);
     site.sound.play(`error`, 1);
 
     return;
@@ -196,6 +197,8 @@ const playUci = (uci: Uci, dest: string): void => {
 
     window.currentPuzzle.moveIndex++;
     if (window.currentPuzzle.isOver()) {
+      window.setCorrect(true);
+
       site.sound.play(`correct`, 1);
 
       setTimeout(() => {

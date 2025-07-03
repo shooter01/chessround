@@ -95,6 +95,13 @@ export default function PuzzleRush() {
 
     window.setNextPuzzle();
   };
+  window.setCorrect = async (isCorrect) => {
+    const oldPov = pov;
+    setPov(isCorrect ? 'correct' : 'incorrect');
+    setTimeout(() => {
+      setPov(oldPov);
+    }, 1700);
+  };
 
   window.setNextPuzzle = async () => {
     window.cg.setAutoShapes([]);

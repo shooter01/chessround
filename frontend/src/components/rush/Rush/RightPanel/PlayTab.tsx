@@ -18,7 +18,7 @@ export default function PlayTab({ loading, onStart, setRushModeCounter }: PlayTa
 
   return (
     <>
-      <Stack direction="row" spacing={2} sx={{ mb: 4 }}>
+      <Stack direction="row" spacing={2} sx={{ mb: 4, mt: 4 }}>
         {times.map(({ key, icon, time, label }) => {
           const active = key === activeKey;
 
