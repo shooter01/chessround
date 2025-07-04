@@ -256,22 +256,8 @@ export const autoSwitch: Unit = {
   run(cont) {
     const configs: Array<() => { fen: string; lastMove: Key[] }> = [
       () => {
-        // const chess = new Chess('7k/3P4/8/8/8/8/4K3/8 w - - 0 1');
-
         return {
           fen: chess.fen(),
-          // check: chess.isCheck(),
-          // highlight: {
-          //   check: true,
-          // },
-          // turnColor: toColor(chess),
-          // premovable: {
-          //   enabled: true,
-          // },
-          // movable: {
-          //   free: false,
-          //   dests: toDests(chess),
-          // },
           events: {
             move: userMove,
             insert(elements) {
@@ -280,25 +266,10 @@ export const autoSwitch: Unit = {
           },
         };
       },
-      // () => {
-      //   return {
-      //     orientation: 'white',
-      //     fen: '2r2rk1/4bp1p/pp2p1p1/4P3/4bP2/PqN1B2Q/1P3RPP/2R3K1 w - - 1 23',
-      //     lastMove: ['b4', 'b3'],
-      //   };
-      // },
     ];
     const cg = Chessground(cont, configs[0]());
     window.cg = cg;
     setZoom(initialZoom);
-    // const delay = 2000;
-    // let it = 0;
-    // function run() {
-    //   if (!cg.state.dom.elements.board.offsetParent) return;
-    //   cg.set(configs[++it % configs.length]());
-    //   setTimeout(run, delay);
-    // }
-    // setTimeout(run, delay);
     return cg;
   },
 };

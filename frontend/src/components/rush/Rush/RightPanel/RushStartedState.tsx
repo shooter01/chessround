@@ -1,35 +1,7 @@
-import React, { useRef, useState, useEffect } from 'react';
+import { Box } from '@mui/material';
 
-import {
-  Container,
-  Grid,
-  Box,
-  Stack,
-  IconButton,
-  Typography,
-  Tabs,
-  Tab,
-  Button,
-  CircularProgress,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Paper,
-  Avatar,
-  useTheme,
-  SelectChangeEvent,
-} from '@mui/material';
-import { Icon } from '@iconify/react';
-
-import { useTranslation } from 'react-i18next';
-import { createTimes, puzzles, mockPlayers } from '../mocks/mock.ts';
 import CustomInfoCard from '../components/CustomInfoCard/CustomInfoCard.tsx';
 
-import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
-import ExtensionIcon from '@mui/icons-material/Extension';
-import WbSunnyIcon from '@mui/icons-material/CalendarToday';
-import SyncIcon from '@mui/icons-material/Autorenew';
 import { IconCounter } from '../components/IconCounter/IconCounter.tsx';
 import Timer from '../components/Timer/Timer.js';
 
@@ -44,18 +16,6 @@ export default function RushStartedState({
   setIsStarted,
   showCountdown,
 }) {
-  const theme = useTheme();
-  const { t } = useTranslation();
-
-  const [mainTab, setMainTab] = useState<'play' | 'leaderboard'>('play');
-  const [boardTab, setBoardTab] = useState<'global' | 'friends' | 'personal'>('global');
-
-  const [range, setRange] = useState<'daily' | 'weekly' | 'all'>('all');
-
-  const handleMainTab = (_: any, v: string) => setMainTab(v as any);
-  const handleBoardTab = (_: any, v: string) => setBoardTab(v as any);
-  const handleRange = (e: SelectChangeEvent) => setRange(e.target.value as any);
-
   return (
     <Box
       sx={{

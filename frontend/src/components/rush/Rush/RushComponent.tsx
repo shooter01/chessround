@@ -1,47 +1,21 @@
 import React, { useRef, useState, useEffect } from 'react';
-import {
-  Container,
-  Grid,
-  Box,
-  Stack,
-  IconButton,
-  Typography,
-  Tabs,
-  Tab,
-  Button,
-  CircularProgress,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Paper,
-  Avatar,
-  useTheme,
-} from '@mui/material';
-import { Chessground } from 'chessground';
+import { Container, Grid, Box } from '@mui/material';
 
-import { createTimes, puzzles, mockPlayers } from './mocks/mock.ts';
+import { puzzles } from './mocks/mock.ts';
 import Countdown from 'react-countdown';
 import { useTranslation } from 'react-i18next';
 
-import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
-import ExtensionIcon from '@mui/icons-material/Extension';
-import WbSunnyIcon from '@mui/icons-material/CalendarToday';
-import SyncIcon from '@mui/icons-material/Autorenew';
 import { useNavigate } from 'react-router-dom';
 
 import Board from '../Board/Board';
 import CountdownOverlay from './components/StartCountDown/CountdownOverlay.tsx';
-import { toColor, toDests } from './util.ts';
 import './styles.css';
 
 // import puzzles from './const';
 import CurrentPuzzle from './current/current';
-import { Chess, Color } from 'chess.js';
 import ResultCard from './components/ResultCard/ResultCard.jsx';
 import RushDefaultState from './RightPanel/DefaultState.tsx';
 import RushStartedState from './RightPanel/RushStartedState.tsx';
-import { lastMoveDrop } from '../chessground/units/zh.ts';
 let canChangePuzzle = true;
 
 declare global {
