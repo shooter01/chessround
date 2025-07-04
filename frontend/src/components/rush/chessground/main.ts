@@ -37,8 +37,8 @@ export function run(element: Element): {
 
   // Цвет фигур на панели превращения
   // Для зума
-  let startX = 0;
-  let startZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom')!) || 100;
+  // let startX = 0;
+  // let startZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom')!) || 100;
 
   // function onDrag(e: MouseEvent) {
   //   const dx = e.clientX - startX;
@@ -130,7 +130,7 @@ export function run(element: Element): {
   function render(): VNode {
     // read saved themes (fallback to 'green' board, 'cburnett' pieces)
     const boardTheme = localStorage.getItem('app-board-theme') || 'green';
-    const pieceTheme = localStorage.getItem('app-piece-theme') || 'cburnett';
+    const pieceTheme = localStorage.getItem('app-piece-theme') || 'neo';
 
     // section gets two classes: one for board BG, one for piece set
     const sectionClass = `section.${boardTheme}.${pieceTheme}`;

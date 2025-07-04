@@ -25,7 +25,7 @@ site.sound.load(`move`, site.sound.url(`/sound/Move.mp3`));
 site.sound.load(`capture`, site.sound.url(`/sound/Capture.mp3`));
 
 let startX = 0;
-let initialZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom')!) || 100;
+let initialZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom')!) || 400;
 
 export default function resizeHandle(els, pref, ply, visible?): void {
   // if (pref === ShowResizeHandle.Never) return;
