@@ -31,13 +31,13 @@ import BoardSelector from './components/BoardSelector/BoardSelector';
 
 // translation keys for menu items
 const menuKeys = [
-  'menu.play',
+  // 'menu.play',
   'menu.puzzles',
-  'menu.learn',
-  'menu.watch',
-  'menu.community',
-  'menu.tools',
-  'menu.donate',
+  // 'menu.learn',
+  // 'menu.watch',
+  // 'menu.community',
+  // 'menu.tools',
+  // 'menu.donate',
 ];
 
 export default function TransparentHeaderWithDrawer() {

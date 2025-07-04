@@ -4,18 +4,14 @@ import RushComponent from './RushComponent.tsx'; // Adjust the path if Board is 
 import ChessgroundApp from './../Board/Demo.tsx'; // Adjust the path if Board is located elsewhere
 import { Route, Routes, Navigate } from 'react-router-dom';
 
-function PuzzleView() {
-  return <RushComponent />;
-}
-
 export default function Rush() {
   return (
     <Routes>
       {/* При заходе на /rush/rush */}
-      <Route index element={<PuzzleView />} />
+      <Route index element={<RushComponent />} />
 
       {/* При заходе на /rush/rush/puzzle */}
-      <Route path="/puzzle/*" element={<PuzzleView />} />
+      <Route path="/puzzle/*" element={<RushComponent />} />
 
       {/* Необязательно: редирект всего непрописанного на index */}
       <Route path="*" element={<Navigate to="" replace />} />
