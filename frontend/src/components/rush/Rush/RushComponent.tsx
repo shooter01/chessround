@@ -73,6 +73,7 @@ export default function PuzzleRush() {
   const [loading, setLoading] = useState(false);
   const [rushModeCounter, setRushModeCounter] = useState(300000);
   const [isStarted, setIsStarted] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Параметры запроса – можно взять из селектора, URL, контекста…
@@ -84,6 +85,7 @@ export default function PuzzleRush() {
   window.handleStart = async () => {
     canChangePuzzle = true;
     setShowResults(false);
+    setIsFinished(false);
     setCorrectPuzzles([]);
     setShowCountdown(true);
     setIsStarted(true);
@@ -142,6 +144,7 @@ export default function PuzzleRush() {
     if (falseCount >= 3) {
       canChangePuzzle = false;
       setIsStarted(false);
+      setIsFinished(true);
       setTimeout(() => {
         setShowResults(true);
       }, 300);
@@ -220,7 +223,7 @@ export default function PuzzleRush() {
               mx: 'auto',
             }}
           >
-            {!isStarted ? (
+            {!isStarted && !isFinished ? (
               <RushDefaultState
                 isStarted={isStarted}
                 loading={loading}
