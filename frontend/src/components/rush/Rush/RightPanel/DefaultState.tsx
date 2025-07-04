@@ -20,15 +20,20 @@ import {
   useTheme,
   SelectChangeEvent,
 } from '@mui/material';
+import { Icon } from '@iconify/react';
 
 import { useTranslation } from 'react-i18next';
 import { createTimes, puzzles, mockPlayers } from '../mocks/mock.ts';
+import ItemSX from '../components/ItemSX/ItemSX.tsx';
 
+import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ExtensionIcon from '@mui/icons-material/Extension';
 import WbSunnyIcon from '@mui/icons-material/CalendarToday';
 import SyncIcon from '@mui/icons-material/Autorenew';
 import { IconCounter } from '../components/IconCounter/IconCounter.tsx';
 import Timer from '../components/Timer/Timer.jsx';
+import { useNavigate } from 'react-router-dom';
+import PlayTab from './PlayTab';
 import LeaderboardTab from './LeaderboardTab';
 import GameState from './GameState';
 
