@@ -7,6 +7,8 @@ import Rush from './Rush/Rush.tsx';
 import { Route, Routes } from 'react-router-dom';
 import TournamentResults from './Tournament/TournamentResults/TournamentResults.tsx';
 import PuzzleDisplay from './PuzzleDisplay/PuzzleDisplay.tsx';
+import LichessAuth from './LichessAuth/LichessAuth.tsx';
+import LichessCallback from './LichessAuth/LichessCallback.tsx';
 import Header from './Header.tsx';
 import { CustomThemeProvider } from './context/ColorModeContext.tsx'; // Adjust the path if needed
 import './index.css';
@@ -21,6 +23,8 @@ const RushModule: React.FC = () => {
         <Route path="/tournaments/:slug" element={<TournamentResults />} />
         <Route path="/rush/*" element={<Rush />} />
         <Route path="/puzzle/:puzzle_id" element={<PuzzleDisplay />} />
+        <Route path="/auth" element={<LichessAuth />} />
+        <Route path="/lichess-callback" element={<LichessCallback />} />
         <Route path="/" element={<Main />} />
       </Routes>
     </CustomThemeProvider>
