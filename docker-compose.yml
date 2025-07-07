@@ -14,10 +14,10 @@ services:
       - VITE_KEYCLOAK_CLIENT_ID=myclient
     volumes:
       - ./frontend:/app
-      - /app/node_modules # Исключаем node_modules из монтирования
-    # depends_on:
-    #   - keycloak
-    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"] # Запускаем Vite с указанием хоста
+      - node_modules:/app/node_modules
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    networks:
+      - keycloak-network
 
   backend:
     container_name: node-backend-round
@@ -72,13 +72,16 @@ services:
       - '5438:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # Монтируем наш скрипт и даём ему имя, чтобы Postgres выполнил его при инициализации
+      - ./db/init/chesscup_init.sql:/docker-entrypoint-initdb.d/01-chesscup_init.sql:ro
     networks:
       - keycloak-network
 
 volumes:
   node_modules:
+    driver: local
   postgres-data:
-     driver: local
+    driver: local
 
 networks:
   keycloak-network:

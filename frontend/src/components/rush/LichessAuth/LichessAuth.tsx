@@ -1,61 +1,67 @@
 // src/components/PuzzleDisplay.tsx
 
 import React, { useState, useEffect } from 'react';
-import { Container, Grid, Box, Button } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import { Chess, SQUARES } from 'chess.js';
-import Board from '../Board/Board';
-import { puzzles } from './mocks/mock';
-import './styles.css';
-import { Chessground } from 'chessground';
-import CurrentPuzzle from '../Rush/current/current';
-
-const CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-const VERIFIER_LEN = 96;
-
-function base64url(bytes) {
-  const b64 = btoa(bytes);
-  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-export async function generatePKCE() {
-  const arr = new Uint32Array(VERIFIER_LEN);
-  crypto.getRandomValues(arr);
-  const verifier = Array.from(arr)
-    .map((n) => CHARSET[n % CHARSET.length])
-    .join('');
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
-  const hash = String.fromCharCode(...new Uint8Array(buf));
-  const challenge = base64url(hash);
-  return { verifier, challenge };
-}
-
-if (!window.site) window.site = {} as Site;
-if (!window.site.load)
-  window.site.load = new Promise<void>((resolve) => {
-    document.addEventListener('DOMContentLoaded', () => resolve());
-  });
+import { Container, Box, Button, CircularProgress, Typography } from '@mui/material';
 
 export default function PuzzleDisplay() {
-  const onClick = async () => {
-    const { verifier, challenge } = await generatePKCE();
-    const state = Math.random().toString(36).slice(2);
+  const [authUri, setAuthUri] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    localStorage.setItem('pkce_verifier', verifier);
-    localStorage.setItem('pkce_state', state);
+  useEffect(() => {
+    // Fetch the authorization URI on component mount
+    fetch('http://localhost:5000/lichess_auth/auth')
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      })
+      .then((data: { authorizationUri: string }) => {
+        setAuthUri(data.authorizationUri);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch auth URI:', err);
+        setError('Не удалось загрузить ссылку для входа.');
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
-    const redirectUri = 'http://localhost:3000/lichess-callback';
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: 'lip_vJMHMJyxiPN4Zc1SkL1Y',
-      redirect_uri: redirectUri,
-      state,
-      code_challenge: challenge,
-      code_challenge_method: 'S256',
-    });
-
-    window.location.href = `https://lichess.org/oauth?${params}`;
+  const handleLogin = () => {
+    if (authUri) {
+      window.location.href = authUri;
+    }
   };
 
-  return <button onClick={onClick}>Log in with Lichess</button>;
+  return (
+    <Container>
+      <Box
+        display="flex"
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="100vh"
+      >
+        {loading ? (
+          <CircularProgress />
+        ) : error ? (
+          <Typography color="error">{error}</Typography>
+        ) : (
+          <Button
+            variant="contained"
+            size="large"
+            sx={{
+              p: 2,
+              borderRadius: '16px',
+              boxShadow: 3,
+              fontSize: '1.2rem',
+              background: 'linear-gradient(45deg, #4caf50 30%, #81c784 90%)',
+              textTransform: 'none',
+            }}
+            onClick={handleLogin}
+          >
+            Войти через Lichess
+          </Button>
+        )}
+      </Box>
+    </Container>
+  );
 }
