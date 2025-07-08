@@ -5,7 +5,7 @@ const pool = new Pool({
   host: 'postgres-db', // Имя контейнера PostgreSQL
   database: 'keycloak',
   password: 'password', // Пароль
-  port: 5432,
+  port: 5438,
 });
 
 // Устанавливаем схему по умолчанию для всех подключений

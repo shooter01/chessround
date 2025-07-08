@@ -1,5 +1,4 @@
 // src/components/rush/Header.tsx
-
 import React, { useState, useContext } from 'react';
 import {
   AppBar,
@@ -15,6 +14,9 @@ import {
   ListItemText,
   Divider,
   Link,
+  Button,
+  Menu,
+  MenuItem,
   useTheme,
   alpha,
 } from '@mui/material';
@@ -28,26 +30,32 @@ import LanguageSelector from './components/LanguageSelector/LanguageSelector';
 import VolumeControl from './components/VolumeControl/VolumeControl';
 import PieceSelector from './components/PieceSelector/PieceSelector';
 import BoardSelector from './components/BoardSelector/BoardSelector';
+import { useAuth } from '../../contexts/AuthContext';
 
-// translation keys for menu items
-const menuKeys = [
-  // 'menu.play',
-  'menu.puzzles',
-  // 'menu.learn',
-  // 'menu.watch',
-  // 'menu.community',
-  // 'menu.tools',
-  // 'menu.donate',
-];
+const menuItems = [{ key: 'menu.login', href: `/auth` }];
 
 export default function TransparentHeaderWithDrawer() {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const theme = useTheme();
   const { toggleColorMode } = useContext(ColorModeContext);
   const { t } = useTranslation();
+  const { user, logout } = useAuth();
 
   const handleDrawerOpen = () => setDrawerOpen(true);
   const handleDrawerClose = () => setDrawerOpen(false);
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+  const handleLogout = async () => {
+    handleMenuClose();
+    await logout();
+    window.location.href = '/';
+  };
 
   const drawerList = (
     <Box sx={{ width: 250 }} role="presentation">
@@ -56,9 +64,9 @@ export default function TransparentHeaderWithDrawer() {
       </Box>
       <Divider />
       <List>
-        {menuKeys.map((key) => (
-          <ListItemButton key={key} component="a" href={`#${key}`}>
-            <ListItemText primary={t(key)} />
+        {menuItems.map((item) => (
+          <ListItemButton key={item.key} component="a" href={item.href} target="_self">
+            <ListItemText primary={t(item.key)} />
           </ListItemButton>
         ))}
       </List>
@@ -109,33 +117,52 @@ export default function TransparentHeaderWithDrawer() {
             >
               <MenuIcon />
             </IconButton>
-
-            {/* Logo */}
-            <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-start' }}>
+            <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
               <Logo />
             </Box>
 
-            {/* Desktop nav */}
-            <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 3, mr: 2 }}>
-              {menuKeys.map((key) => (
-                <Link
-                  key={key}
-                  href={`#${key}`}
-                  underline="none"
-                  variant="body2"
-                  sx={{
-                    color: 'inherit',
-                    fontWeight: 500,
-                    '&:hover': { textDecoration: 'underline' },
-                  }}
+            {/* User or Login */}
+            {user ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 2 }}>
+                <Typography
+                  variant="h6"
+                  sx={{ cursor: 'pointer', fontWeight: 600, color: theme.palette.text.primary }}
+                  onMouseEnter={handleMenuOpen}
                 >
-                  {t(key)}
-                </Link>
-              ))}
-            </Box>
+                  {user.username}
+                </Typography>
+                <Menu
+                  anchorEl={anchorEl}
+                  open={Boolean(anchorEl)}
+                  onClose={handleMenuClose}
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                  transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                >
+                  <MenuItem onClick={handleLogout}>{t('menu.logout')}</MenuItem>
+                </Menu>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', gap: 2, mr: 2 }}>
+                {menuItems.map((item) => (
+                  <Link
+                    key={item.key}
+                    href={item.href}
+                    underline="none"
+                    variant="body2"
+                    target="_self"
+                    sx={{
+                      color: 'inherit',
+                      fontWeight: 500,
+                      '&:hover': { textDecoration: 'underline' },
+                    }}
+                  >
+                    {t(item.key)}
+                  </Link>
+                ))}
+              </Box>
+            )}
 
-            {/* Theme toggle + Language selector */}
-            <IconButton onClick={toggleColorMode} sx={{ color: 'inherit' }}>
+            <IconButton onClick={toggleColorMode} sx={{ color: 'inherit', mr: 2 }}>
               {theme.palette.mode === 'light' ? (
                 <Brightness4Icon fontSize="small" />
               ) : (
@@ -143,18 +170,15 @@ export default function TransparentHeaderWithDrawer() {
               )}
             </IconButton>
             <LanguageSelector />
-
             <VolumeControl />
             <PieceSelector />
             <BoardSelector />
           </Toolbar>
         </Container>
       </AppBar>
-
       <Drawer anchor="left" open={drawerOpen} onClose={handleDrawerClose}>
         {drawerList}
       </Drawer>
-
       <MuiToolbar sx={{ minHeight: { xs: 48, sm: 64 } }} />
     </>
   );

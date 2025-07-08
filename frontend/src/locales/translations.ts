@@ -1,3 +1,5 @@
+// src/i18n/resources.ts
+
 // Translation resources
 export const resources = {
   en: {
@@ -5,6 +7,8 @@ export const resources = {
       menu: {
         play: 'Play',
         puzzles: 'Puzzles',
+        login: 'Login',
+        logout: 'Logout', // added logout
         learn: 'Learn',
         watch: 'Watch',
         community: 'Community',
@@ -45,6 +49,9 @@ export const resources = {
           survival: 'Survival',
         },
       },
+      header: {
+        welcome: 'Hello, {{username}}!', // added welcome message
+      },
       // add other keys as needed
     },
   },
@@ -53,6 +60,8 @@ export const resources = {
       menu: {
         play: 'Играть',
         puzzles: 'Головоломки',
+        login: 'Войти',
+        logout: 'Выйти', // added logout
         learn: 'Учиться',
         watch: 'Смотреть',
         community: 'Сообщество',
@@ -93,7 +102,10 @@ export const resources = {
           survival: 'Выживание',
         },
       },
+      header: {
+        welcome: 'Привет, {{username}}!', // added welcome message
+      },
       // add other keys as needed
     },
   },
-}; 
+};

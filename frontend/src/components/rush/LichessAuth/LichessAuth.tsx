@@ -1,7 +1,7 @@
 // src/components/PuzzleDisplay.tsx
 
 import React, { useState, useEffect } from 'react';
-import { Container, Box, Button, CircularProgress, Typography } from '@mui/material';
+import { Container, Box, CircularProgress, Typography } from '@mui/material';
 
 export default function PuzzleDisplay() {
   const [authUri, setAuthUri] = useState<string | null>(null);
@@ -26,9 +26,7 @@ export default function PuzzleDisplay() {
   }, []);
 
   const handleLogin = () => {
-    if (authUri) {
-      window.location.href = authUri;
-    }
+    if (authUri) window.location.href = authUri;
   };
 
   return (
@@ -36,30 +34,43 @@ export default function PuzzleDisplay() {
       <Box
         display="flex"
         flexDirection="column"
-        justifyContent="center"
+        justifyContent="baseline"
         alignItems="center"
         minHeight="100vh"
       >
         {loading ? (
-          <CircularProgress />
+          <CircularProgress size={80} />
         ) : error ? (
           <Typography color="error">{error}</Typography>
         ) : (
-          <Button
-            variant="contained"
-            size="large"
-            sx={{
-              p: 2,
-              borderRadius: '16px',
-              boxShadow: 3,
-              fontSize: '1.2rem',
-              background: 'linear-gradient(45deg, #4caf50 30%, #81c784 90%)',
-              textTransform: 'none',
-            }}
+          <Box
+            component="button"
             onClick={handleLogin}
+            sx={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              p: 0,
+              mb: 2,
+              mt: 12,
+              '&:hover svg path': {
+                fill: '#4caf50',
+              },
+            }}
           >
-            Войти через Lichess
-          </Button>
+            {/* Lichess Logo */}
+            <Box component="svg" viewBox="0 0 50 50" width={100} height={100}>
+              <path
+                fill="#ffffff"
+                stroke="#ffffff"
+                strokeLinejoin="round"
+                d="M38.956.5c-3.53.418-6.452.902-9.286 2.984C5.534 1.786-.692 18.533.68 29.364 3.493 50.214 31.918 55.785 41.329 41.7c-7.444 7.696-19.276 8.752-28.323 3.084C3.959 39.116-.506 27.392 4.683 17.567 9.873 7.742 18.996 4.535 29.03 6.405c2.43-1.418 5.225-3.22 7.655-3.187l-1.694 4.86 12.752 21.37c-.439 5.654-5.459 6.112-5.459 6.112-.574-1.47-1.634-2.942-4.842-6.036-3.207-3.094-17.465-10.177-15.788-16.207-2.001 6.967 10.311 14.152 14.04 17.663 3.73 3.51 5.426 6.04 5.795 6.756 0 0 9.392-2.504 7.838-8.927L37.4 7.171z"
+              />
+            </Box>
+            <Typography variant="h6" sx={{ mt: 1, color: 'common.white' }}>
+              Войти через Lichess
+            </Typography>
+          </Box>
         )}
       </Box>
     </Container>

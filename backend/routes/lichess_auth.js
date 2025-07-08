@@ -1,278 +1,197 @@
-var express = require('express');
-var router = express.Router();
-const lichess_credentials = require('./utils/lichess_credentials');
-
-const simpleOauth = require('simple-oauth2');
+// routes/lichess_auth.js
+const express = require('express');
 const axios = require('axios');
+const crypto = require('crypto');
+const { Pool } = require('pg');
+var jwt = require('jsonwebtoken');
+const lichessCredentials = require('./utils/lichess_credentials');
 
-var md5 = require('md5');
+const router = express.Router();
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-const scopes = [
-  // 'email:read'
-  // 'preference:read',
-  // 'challenge:read',
-];
+// Базовый URL вашего бэка, без слеша на конце
+const BASE_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 
-const redirectUri = `${lichess_credentials.url}/lichess_auth/callback`;
-/* --- Lichess config --- */
-const tokenHost = 'https://oauth.lichess.org';
-const authorizePath = '/oauth/authorize';
-const tokenPath = '/oauth';
-/* --- End of lichess config --- */
-// const oauth2 = simpleOauth.create({
-//   client: {
-//     id: lichess_credentials.clientId,
-//     secret: lichess_credentials.clientSecret,
-//   },
-//   auth: {
-//     tokenHost,
-//     tokenPath,
-//     authorizePath,
-//   },
-// });
+// Единый путь коллбэка
+const CALLBACK_PATH = '/lichess_auth/callback';
 
-const oauth2 = simpleOauth.create({
-  client: {
-    id: lichess_credentials.clientId,
-  },
-  auth: {
-    authorizeHost: 'https://lichess.org',
-    authorizePath: '/oauth',
-    tokenHost: 'https://lichess.org',
-    tokenPath: '/api/token',
-  },
-  options: {
-    // send params in the request body
-    authorizationMethod: 'body',
-  },
-});
+// Полный URI должен совпадать в /auth и при обмене
+const REDIRECT_URI = BASE_URL + CALLBACK_PATH;
 
-async function generatePKCECodes() {
-  // 1) make a random string of allowed characters
-  const output = new Uint32Array(RECOMMENDED_CODE_VERIFIER_LENGTH);
-  crypto.getRandomValues(output);
-  const codeVerifier = Array.from(output)
-    .map((num) => PKCE_CHARSET[num % PKCE_CHARSET.length])
-    .join('');
+const CLIENT_ID =
+  process.env.LICHESS_CLIENT_ID || lichessCredentials.clientId;
+const STATE_SECRET = process.env.STATE_SECRET || 'test';
 
-  // 2) hash it
-  const buffer = await crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode(codeVerifier)
+// base64url-encode без padding
+function base64URLEncode(buffer) {
+  return buffer
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+// Генерация PKCE verifier & challenge
+function generatePKCECodes() {
+  const verifier = base64URLEncode(crypto.randomBytes(32));
+  const challenge = base64URLEncode(
+    crypto.createHash('sha256').update(verifier).digest()
   );
-
-  // 3) turn the hash into a binary string
-  const hashArray = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < hashArray.byteLength; i++) {
-    binary += String.fromCharCode(hashArray[i]);
-  }
-
-  // 4) base64url-encode the digest → this is the code challenge
-  const codeChallenge = base64urlEncode(binary);
-
-  // 5) return _both_ verifier & challenge
-  return { codeVerifier, codeChallenge };
+  return { verifier, challenge };
 }
 
-/**
- * Implements *base64url-encode* (RFC 4648 § 5) without padding, which is NOT
- * the same as regular base64 encoding.
- */
-function base64urlEncode(value) {
-  let base64 = btoa(value);
-  base64 = base64.replace(/\+/g, '-');
-  base64 = base64.replace(/\//g, '_');
-  base64 = base64.replace(/=/g, '');
-  return base64;
-}
-const PKCE_CHARSET =
-  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+// 1️⃣ Начало OAuth-flow: генерим PKCE, сохраняем verifier+state в сессии, возвращаем URI
+router.get('/auth', (req, res) => {
+  const state = crypto.randomBytes(16).toString('hex');
+  const { verifier, challenge } = generatePKCECodes();
 
-const RECOMMENDED_CODE_VERIFIER_LENGTH = 96;
-// module.exports = function (app, passport, pool) {
-// Show the "log in with lichess" button
-// app.get('/', (req, res) => res.send('Hello<br><a href="/auth">Log in with lichess</a>'));
-let pkce;
-// Initial page redirecting to Lichess
-router.get('/auth', async (req, res) => {
-  //   const { codeChallenge, codeVerifier } = await generatePKCECodes();
-  const state = Math.random().toString(36).substring(2);
-  //   const authorizationUri = `${tokenHost}${authorizePath}?response_type=code&client_id=${
-  //     lichess_credentials.clientId
-  //   }&redirect_uri=${redirectUri}&scope=${scopes.join(
-  //     '%20'
-  //   )}&state=${state}&code_challenge_method=S256&code_challenge=${encodeURIComponent(codeChallenge)}`;
-  //   console.log(authorizationUri);
+  req.session.codeVerifier = verifier;
+  req.session.oauthState = state;
 
-  const { codeVerifier, codeChallenge } = await generatePKCECodes();
-  pkce = codeVerifier;
+  const payload = {
+    cv: verifier, // ваш PKCE-verifier
+    iat: Math.floor(Date.now() / 1000),
+  };
+  const token = jwt.sign(payload, 'test', {
+    expiresIn: '15m',
+  });
+  const stateToken = jwt.sign({ cv: verifier }, STATE_SECRET, {
+    expiresIn: '5m',
+  });
 
-  const authorizationUri = oauth2.authorizationCode.authorizeURL({
-    redirect_uri: redirectUri,
-    scope: scopes.join(' '),
-    state: state,
-    code_challenge: codeChallenge,
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: CLIENT_ID,
+    redirect_uri: REDIRECT_URI,
+    state: stateToken,
+    code_challenge: challenge,
     code_challenge_method: 'S256',
   });
 
-  res.status(200).json({ authorizationUri });
+  const authorizationUri = `https://lichess.org/oauth?${params.toString()}`;
+  res.json({ authorizationUri });
 });
 
-// Redirect URI: parse the authorization token and ask for the access token
+// 2️⃣ Callback: обмениваем code+verifier на токен и сохраняем в БД
+// 2️⃣ /callback — получаем код, расшифровываем state, меняем на токен
 router.get('/callback', async (req, res) => {
   try {
-    function getUserInfo(token) {
-      return axios.get('/api/account', {
-        baseURL: 'https://lichess.org/',
-        headers: { Authorization: 'Bearer ' + token.access_token },
-      });
+    const { code, state } = req.query;
+    if (!code || !state)
+      return res.status(400).send('Missing code or state');
+
+    let payload;
+    try {
+      payload = jwt.verify(state, STATE_SECRET);
+    } catch {
+      return res.status(400).send('Invalid or expired state');
     }
+    const codeVerifier = payload.cv;
+    if (!codeVerifier)
+      return res.status(400).send('Invalid state payload');
 
-    console.log(req.query.code, pkce);
-
-    const result = await oauth2.authorizationCode.getToken({
-      code: req.query.code,
-      redirect_uri: redirectUri,
-      code_verifier: pkce,
-    });
-    console.log(result);
-
-    const token = oauth2.accessToken.create(result);
-    const userInfo = await getUserInfo(token.token);
-    console.log(userInfo);
-
-    res.status(200).json({ data: userInfo.data });
-
-    function getLanguage(str) {
-      try {
-        return userInfo.data.language.split('-')[1];
-      } catch (e) {
-        return 'RU';
+    // Обмен кода на токен — ОБЯЗАТЕЛЬНО /api/token
+    const tokenResp = await axios.post(
+      'https://lichess.org/api/token',
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        client_id: CLIENT_ID,
+        redirect_uri: REDIRECT_URI,
+        code_verifier: codeVerifier,
+      }).toString(),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
       }
+    );
+    const accessToken = tokenResp.data.access_token;
+
+    // Запрашиваем профиль
+    const userResp = await axios.get(
+      'https://lichess.org/api/account',
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    const lichessId = userResp.data.username;
+
+    // Upsert в базу
+    const clientDb = await pool.connect();
+    try {
+      const upd = await clientDb.query(
+        `UPDATE chesscup.chesscup_users
+            SET access_token = $1, updated_at = now()
+          WHERE lichess_id = $2`,
+        [accessToken, lichessId]
+      );
+      if (upd.rowCount === 0) {
+        await clientDb.query(
+          `INSERT INTO chesscup.chesscup_users (lichess_id, access_token)
+           VALUES ($1, $2)`,
+          [lichessId, accessToken]
+        );
+      }
+    } finally {
+      clientDb.release();
     }
-    var insertId, user_id, foundSocialTable;
 
-    // pool
-    //   .query(
-    //     'SELECT * FROM social_user WHERE net_uid = ?',
-    //     userInfo.data.username
-    //   )
-    //   .then((rows) => {
-    //     console.log(rows);
-    //     console.log(req.query.code.length);
-    //     if (rows.length > 0) {
-    //       foundSocialTable = true;
-    //     } else {
-    //       foundSocialTable = false;
-    //     }
-    //     return pool.query('SELECT * FROM users WHERE name = ?', [
-    //       userInfo.data.username,
-    //     ]);
-    //   })
-    //   .then((rows) => {
-    //     if (rows.length === 0) {
-    //       let theme = {
-    //         email: userInfo.data.username,
-    //         password: md5(userInfo.data.username),
-    //         name: userInfo.data.username,
-    //         image: '/images/user.png',
-    //         country: getLanguage(userInfo),
-    //         rating: 1600,
-    //         school_id: null,
-    //         tournaments_rating: 1600,
-    //       };
+    res.cookie('lichess_token', accessToken, {
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 24 * 30, // 30 дней
+      sameSite: 'lax',
+    });
 
-    //       return pool.query('INSERT INTO users SET ?', theme);
-    //     } else {
-    //       if (foundSocialTable) {
-    //         return req.login(rows[0], () => {});
-    //       } else {
-    //         res.render('lichess_login_error', {
-    //           username: userInfo.data.username,
-    //         });
-    //       }
-    //     }
-    //   })
-    //   .then((results) => {
-    //     if (!!results && results.insertId > 0) {
-    //       insertId = results.insertId;
-    //       return pool
-    //         .query('INSERT INTO social_user SET ?', {
-    //           user_id: insertId,
-    //           net: 'lichess',
-    //           net_uid: userInfo.data.username,
-    //         })
-    //         .then(function () {
-    //           return pool.query(
-    //             'SELECT * FROM users WHERE id = ?',
-    //             insertId
-    //           );
-    //         })
-    //         .then(function (rows) {
-    //           req.login(rows[0], () => {});
-    //         })
-    //         .catch(function (err) {
-    //           console.log(err);
-    //         });
-    //     }
-    //   })
-    //   .then((results) => {
-    //     res.redirect('/');
-    //   })
-    //   .catch(function (err) {
-    //     console.log(err);
-    //   });
-
-    // res.send(`<h1>Success!</h1>Your lichess user info: <pre>${JSON.stringify(userInfo.data)}</pre>`);
-  } catch (error) {
-    console.error('Access Token Error', error);
-    res.status(500).json('Authentication failed');
+    res.redirect(process.env.FRONTEND_URL || '/');
+  } catch (err) {
+    console.error(
+      'Lichess OAuth callback error:',
+      err.response || err
+    );
+    res.status(500).send('Authentication failed');
   }
 });
 
-router.get('/', function (req, res) {
-  var page = req.query.page || null;
-  var limit_start = 0,
-    limit = 20;
-  page = parseInt(page, 10);
-  if (typeof page === 'undefined' || !Number.isInteger(page)) {
-    page = 1;
-  }
-  limit_start = page * limit - limit;
+router.get('/user', async (req, res) => {
+  try {
+    const token = req.cookies['lichess_token'];
+    if (!token) return res.status(401).send('Not authenticated');
 
-  pool.query(
-    'SELECT COUNT(*) as count FROM users WHERE is_hidden = 0',
-    function (err, result, fields) {
-      var sql1 =
-        'SELECT users.* FROM users WHERE is_hidden = 0 AND id = school_id ORDER BY tournaments_rating DESC LIMIT ?,?';
-
-      pool
-        .query(sql1, [limit_start, limit])
-        .then((rows) => {
-          var total = result[0].count,
-            pageSize = limit,
-            pageCount = total / pageSize;
-
-          res.render('user/users', {
-            users: rows,
-            countries: countries,
-            count: result[0].count,
-            online: app.globalPlayers,
-            total: total,
-            pageSize: pageSize,
-            currentPage: page,
-            pageCount: pageCount,
-          });
-        })
-        .catch(function (err) {
-          console.log(err);
-        });
+    // Проверим, что такой токен есть в БД
+    const clientDb = await pool.connect();
+    let dbCheck;
+    try {
+      dbCheck = await clientDb.query(
+        `SELECT lichess_id FROM chesscup.chesscup_users WHERE access_token = $1`,
+        [token]
+      );
+    } finally {
+      clientDb.release();
     }
-  );
+    if (!dbCheck.rows.length)
+      return res.status(401).send('Invalid token');
+
+    // Получим свежий профиль из Lichess
+    const userResp = await axios.get(
+      'https://lichess.org/api/account',
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    return res.json(userResp.data);
+  } catch (err) {
+    console.error('/user error', err.response || err);
+    res.status(500).send('Failed to fetch user');
+  }
 });
 
-//   return router;
-// };
+router.post('/logout', (req, res) => {
+  res.clearCookie('lichess_token', {
+    sameSite: 'lax',
+    httpOnly: true,
+  });
+  res.sendStatus(200);
+});
 
 module.exports = router;

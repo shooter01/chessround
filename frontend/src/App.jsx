@@ -6,6 +6,7 @@ import ProtectedArea from './components/ProtectedArea';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import  './index.css'; // Импортируем стили
 import './i18n';
+import { AuthProvider } from './contexts/AuthContext';
 
 const App = () => {
   // const { keycloak, initialized } = useKeycloak();
@@ -22,7 +23,9 @@ const App = () => {
     <Router>
     
         {/* {keycloak.authenticated ? ( */}
+        <AuthProvider>
           <ProtectedArea />
+  </AuthProvider>
         {/* ) : (
           <Button
             variant="contained"

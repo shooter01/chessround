@@ -6,9 +6,20 @@ const session = require('express-session');
 const { router: authRoutes } = require('./routes/authRoutes'); // Импортируем router из authRoutes
 const api = require('./routes/api'); // Убедитесь, что путь корректный
 const lichess_auth = require('./routes/lichess_auth'); // Убедитесь, что путь корректный
+const cookieParser = require('cookie-parser');
 
 const app = express();
+// Middleware для сессий (PKCE будем хранить в req.session)
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'keyboard cat',
+    resave: false,
+    saveUninitialized: true,
+  })
+);
+
 const PORT = 5000;
+app.use(cookieParser());
 
 app.use(
   session({

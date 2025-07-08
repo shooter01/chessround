@@ -28,10 +28,20 @@ services:
       - '5000:5000'
     environment:
       - NODE_ENV=development
+      # Подключение к Postgres — обращаемся к сервису по имени `db`
+      - DATABASE_URL=postgres://keycloak:password@db:5432/keycloak
+      # Переменные для Lichess OAuth
+      - LICHESS_CLIENT_ID=lip_vJMHMJyxiPN4Zc1SkL1Y
+      - LICHESS_REDIRECT_URI=http://localhost:5000/lichess-auth/callback
+      - STATE_SECRET=your-very-strong-secret
+      # URL фронтенда для редиректа после успешного логина (опционально)
+      - FRONTEND_URL=http://localhost:3000
     volumes:
       - ./backend:/app
-      - /app/node_modules # Исключаем node_modules из монтирования
-    command: ["npx", "nodemon", "--legacy-watch", "index.js"] # Добавляем --legacy-watch
+      - /app/node_modules
+    depends_on:
+      - db
+    command: ["npx", "nodemon", "--legacy-watch", "index.js"]
     networks:
       - keycloak-network
 
@@ -72,7 +82,6 @@ services:
       - '5438:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      # Монтируем наш скрипт и даём ему имя, чтобы Postgres выполнил его при инициализации
       - ./db/init/chesscup_init.sql:/docker-entrypoint-initdb.d/01-chesscup_init.sql:ro
     networks:
       - keycloak-network
