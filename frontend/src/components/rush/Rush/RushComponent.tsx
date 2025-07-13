@@ -1,9 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Container, Grid, Box } from '@mui/material';
 
-import { puzzles } from './mocks/mock.ts';
+// import { puzzles } from './mocks/mock.ts';
 import Countdown from 'react-countdown';
-import { useTranslation } from 'react-i18next';
+import axios from 'axios';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -17,6 +17,7 @@ import ResultCard from './components/ResultCard/ResultCard.jsx';
 import RushDefaultState from './RightPanel/DefaultState.tsx';
 import RushStartedState from './RightPanel/RushStartedState.tsx';
 let canChangePuzzle = true;
+import { useAuth } from '../../../contexts/AuthContext.tsx';
 
 declare global {
   interface Window {
@@ -33,10 +34,16 @@ if (!window.site.load)
   });
 
 window.puzzlesCounter = -1;
+// это потом полетит на бек для проверки
+window.currentPuzzlesMoves = [];
 window.currentPuzzle;
 
 export default function PuzzleRush() {
   const navigate = useNavigate();
+  const [puzzles, setPuzzles] = useState([]);
+  const { user, token } = useAuth(); // предполагается, что здесь есть ваш JWT
+  console.log(user);
+  console.log(token);
 
   const [pov, setPov] = useState<'white' | 'black'>('white');
   const [showResults, setShowResults] = useState<boolean>(false);
@@ -47,43 +54,80 @@ export default function PuzzleRush() {
   const [loading, setLoading] = useState(false);
   const [rushModeCounter, setRushModeCounter] = useState(300000);
   const [isStarted, setIsStarted] = useState(false);
+  const [theme, setTheme] = useState('');
   const [isFinished, setIsFinished] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Параметры запроса – можно взять из селектора, URL, контекста…
-  const level = 3;
+  const level = 1;
   // const theme = 'fork';
   const limit = 5;
 
   const [promoVisible, setPromoVisible] = useState(false);
   window.handleStart = async () => {
-    canChangePuzzle = true;
-    setShowResults(false);
-    setIsFinished(false);
-    setCorrectPuzzles([]);
-    setShowCountdown(true);
-    setIsStarted(true);
-    countdownRef.current?.stop();
-    setTimeout(() => {
-      countdownRef.current?.start();
-    }, 100);
-    window.puzzlesCounter = -1;
+    try {
+      // Сброс стейта
+      setShowResults(false);
+      setIsFinished(false);
+      setCorrectPuzzles([]);
+      window.currentPuzzlesMoves = [];
+      setShowCountdown(true);
+      setIsStarted(true);
+      countdownRef.current?.stop();
 
-    window.setNextPuzzle();
+      // Запуск таймера через 100 мс
+      setTimeout(() => countdownRef.current?.start(), 100);
+
+      // Запрос паззлов с бэкенда на порту 5000
+      const { data } = await axios.get('http://localhost:5000/puzzles/get', {
+        params: { level, theme, limit },
+        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+        withCredentials: true, // при необходимости для куки
+      });
+      console.log(data);
+
+      // Сохраняем и начинаем
+      setPuzzles(data.puzzles);
+      // setCurrentIndex(-1);
+      setTimeout(() => window.setNextPuzzle(), 100);
+    } catch (err) {
+      console.error('Не удалось загрузить паззлы:', err);
+      // можно показать уведомление об ошибке
+    }
   };
-  window.setCorrect = async (isCorrect) => {
+  window.setCorrect = async (isCorrect, fen) => {
     const oldPov = pov;
     setPov(isCorrect ? 'correct' : 'incorrect');
     setTimeout(() => {
       setPov(oldPov);
     }, 1700);
+
+    await axios.post(
+      'http://localhost:5000/puzzles/solve',
+      {
+        fen: window.currentPuzzle.startFen,
+        moves: currentPuzzlesMoves.join(' '),
+        result: isCorrect ? 'win' : 'lose', // если нужно
+      },
+      {
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`, // ваш JWT
+        },
+        withCredentials: true, // если используете куки
+      },
+    );
   };
 
   window.setNextPuzzle = async () => {
     window.cg.setAutoShapes([]);
 
     window.puzzlesCounter++;
+    console.log(puzzles[puzzlesCounter]);
+    window.currentPuzzlesMoves = [];
+
     window.currentPuzzle = new CurrentPuzzle(puzzlesCounter, puzzles[puzzlesCounter]);
+    window.currentPuzzle.startFen = puzzles[puzzlesCounter].fen;
     window.chess.load(puzzles[puzzlesCounter].fen);
     setPov(window.currentPuzzle.pov);
     if (!canChangePuzzle) {

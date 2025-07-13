@@ -8,55 +8,64 @@ const publicKey = fs.readFileSync(
   'utf8'
 );
 
-const checkJwt = (req, res, next) => {
-  const authHeader = req.headers.authorization;
+const checkJwt = async (req, res, next) => {
+  // Skip auth and session check for GET /puzzles/get when level=1
+  if (
+    req.method === 'GET' &&
+    req.originalUrl.startsWith('/puzzles/get') &&
+    req.query.level === '1'
+  ) {
+    return next();
+  }
 
+  console.log(req.headers.authorization);
+
+  // 1. Check Authorization header
+  const authHeader = req.headers.authorization;
   if (!authHeader) {
     return res
       .status(401)
       .json({ message: 'Missing Authorization header' });
   }
-
   const token = authHeader.split(' ')[1];
+  if (!token) {
+    return res
+      .status(402)
+      .json({ message: 'Invalid Authorization header format' });
+  }
+
+  // 2. Optionally check Session-Id header presence, except for GET /puzzles/get
+  const skipSessionCheck =
+    req.method === 'GET' &&
+    req.originalUrl.startsWith('/puzzles/get');
+  if (!skipSessionCheck) {
+    const sessionId = req.headers['session-id'];
+    if (!sessionId) {
+      return res
+        .status(400)
+        .json({ message: 'Missing Session-Id header' });
+    }
+    req.sessionId = sessionId;
+  }
 
   try {
-    // Декодируем токен
-    const decoded = jwt.verify(token, publicKey, {
-      algorithms: ['RS256'],
-    });
-
-    // Извлекаем нужные поля из Keycloak-токена
-    const userId = decoded.sub;
-    const username = decoded.preferred_username;
-    const userEmail = decoded.email;
-
-    // Роли (если настроены). Например, из realm_access:
-    const roles = decoded.realm_access?.roles || [];
-
-    // Сохраняем их в req.user (или куда угодно)
-    req.user = {
-      id: userId,
-      username,
-      email: userEmail,
-      roles,
-      // Можете добавить и другие поля из токена
-    };
-
-    // Если нужно конкретно userId
-    req.userId = userId;
-
-    if (!req.userId) {
+    // 3. Verify token exists in database
+    const result = await db.query(
+      'SELECT lichess_id FROM chesscup_users WHERE access_token = $1',
+      [token]
+    );
+    if (result.rowCount === 0) {
       return res
         .status(403)
-        .json({ message: 'Invalid token: userId not found' });
+        .json({ message: 'Invalid or expired token' });
     }
 
+    // Attach user identifier
+    // req.session.user = { lichessId: result.rows[0].lichess_id };
     next();
   } catch (error) {
-    console.error('JWT verification failed:', error.message);
-    return res
-      .status(403)
-      .json({ message: 'Invalid or expired token' });
+    console.error('Token lookup failed:', error.message || error);
+    return res.status(500).json({ message: 'Internal server error' });
   }
 };
 

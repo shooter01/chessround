@@ -6,6 +6,7 @@ const session = require('express-session');
 const { router: authRoutes } = require('./routes/authRoutes'); // Импортируем router из authRoutes
 const api = require('./routes/api'); // Убедитесь, что путь корректный
 const lichess_auth = require('./routes/lichess_auth'); // Убедитесь, что путь корректный
+const puzzles = require('./routes/puzzles'); // Убедитесь, что путь корректный
 const cookieParser = require('cookie-parser');
 
 const app = express();
@@ -57,6 +58,7 @@ app.use(
 app.use('/auth', authRoutes); // Все маршруты из authRoutes будут начинаться с /auth
 app.use('/api', api);
 app.use('/lichess_auth', lichess_auth);
+app.use('/puzzles', puzzles);
 
 // Запуск сервера
 app.listen(PORT, () => {

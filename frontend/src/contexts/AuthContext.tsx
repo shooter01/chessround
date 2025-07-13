@@ -13,6 +13,7 @@ export interface User {
 
 interface AuthContextValue {
   user: User | null;
+  token: string | null;
   loading: boolean;
   error: string | null;
   logout: () => Promise<void>;
@@ -27,6 +28,7 @@ const AuthContext = createContext<AuthContextValue>({
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,7 +47,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Пытаемся получить профиль из бекенда
     axios
       .get<User>('http://localhost:5000/lichess_auth/user', { withCredentials: true })
-      .then((res) => setUser(res.data))
+      .then((res) => {
+        setUser(res.data.data);
+        setToken(res.data.token);
+      })
       .catch((err) => {
         if (err.response?.status !== 401) {
           setError(err.response?.data || err.message);
@@ -75,7 +80,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, logout }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, loading, error, logout, token }}>
+      {children}
+    </AuthContext.Provider>
   );
 };
 

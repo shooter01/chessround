@@ -133,6 +133,7 @@ window.playComputerMove = (orig: Key, dest: Key): void => {
   setTimeout(() => {
     const move = window.chess.move(currentPuzzle.expectedMove());
     console.log(move);
+    window.currentPuzzlesMoves.push(move.lan);
 
     window.cg.set({
       fen: window.chess.fen(),
@@ -171,6 +172,8 @@ const playUci = (uci: Uci, dest: string): void => {
 
   if (uci == window.currentPuzzle.expectedMove()) {
     sign = '✓';
+    // это потом полетит на бек для проверки
+    window.currentPuzzlesMoves.push(uci);
   } else {
     window.cg.setAutoShapes([{ orig: dest, customSvg: glyphToSvg[sign] }]);
 

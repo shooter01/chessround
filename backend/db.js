@@ -1,18 +1,17 @@
+// db.js
 const { Pool } = require('pg');
 
 const pool = new Pool({
-  user: 'keycloak', // PostgreSQL user
-  host: 'postgres-db', // Имя контейнера PostgreSQL
-  database: 'keycloak',
-  password: 'password', // Пароль
-  port: 5438,
-});
-
-// Устанавливаем схему по умолчанию для всех подключений
-pool.on('connect', (client) => {
-  client.query('SET search_path TO notification_service, public');
+  host: process.env.PGHOST || 'db', // сервис db в docker-compose
+  port: process.env.PGPORT || 5432,
+  user: process.env.PGUSER || 'keycloak',
+  password: process.env.PGPASSWORD || 'password',
+  database: process.env.PGDATABASE || 'keycloak',
+  // OR вы можете использовать один connectionString:
+  // connectionString: process.env.DATABASE_URL,
 });
 
 module.exports = {
   query: (text, params) => pool.query(text, params),
+  pool,
 };

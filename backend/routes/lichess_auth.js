@@ -179,7 +179,7 @@ router.get('/user', async (req, res) => {
         headers: { Authorization: `Bearer ${token}` },
       }
     );
-    return res.json(userResp.data);
+    return res.json({ data: userResp.data, token });
   } catch (err) {
     console.error('/user error', err.response || err);
     res.status(500).send('Failed to fetch user');
