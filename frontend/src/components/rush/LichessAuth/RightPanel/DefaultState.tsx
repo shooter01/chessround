@@ -30,12 +30,11 @@ import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ExtensionIcon from '@mui/icons-material/Extension';
 import WbSunnyIcon from '@mui/icons-material/CalendarToday';
 import SyncIcon from '@mui/icons-material/Autorenew';
-import { IconCounter } from '../components/IconCounter/IconCounter.tsx';
-import Timer from '../components/Timer/Timer.jsx';
 import { useNavigate } from 'react-router-dom';
 import PlayTab from './PlayTab';
-import LeaderboardTab from './LeaderboardTab';
 import GameState from './GameState';
+import { useRecords } from '../../hooks/useRecords.ts';
+import { useAuth } from '../../../../contexts/AuthContext.tsx';
 
 export default function RushDefaultState({
   isStarted = false,
@@ -50,6 +49,7 @@ export default function RushDefaultState({
   const theme = useTheme();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { user, token } = useAuth(); // предполагается, что здесь есть ваш JWT
 
   const [mainTab, setMainTab] = useState<'play' | 'leaderboard'>('play');
   const [boardTab, setBoardTab] = useState<'global' | 'friends' | 'personal'>('global');
@@ -99,14 +99,14 @@ export default function RushDefaultState({
       <Stack direction="row" justifyContent="space-around" mb={1}>
         <Stack alignItems="center">
           <WbSunnyIcon sx={{ color: theme.palette.text.secondary }} />
-          <Typography variant="h6">--</Typography>
+          <Typography variant="h6">{bestToday}</Typography>
           <Typography variant="caption" sx={{ textTransform: 'uppercase' }}>
             {t('rush.bestToday')}
           </Typography>
         </Stack>
         <Stack alignItems="center">
           <SyncIcon sx={{ color: theme.palette.text.secondary }} />
-          <Typography variant="h6">--</Typography>
+          <Typography variant="h6">{bestAllTime}</Typography>
           <Typography variant="caption" sx={{ textTransform: 'uppercase' }}>
             {t('rush.topScore')}
           </Typography>

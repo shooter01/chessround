@@ -18,6 +18,7 @@ import RushDefaultState from './RightPanel/DefaultState.tsx';
 import RushStartedState from './RightPanel/RushStartedState.tsx';
 let canChangePuzzle = true;
 import { useAuth } from '../../../contexts/AuthContext.tsx';
+import { useRecords } from '../hooks/useRecords';
 
 declare global {
   interface Window {
@@ -57,8 +58,10 @@ export default function PuzzleRush() {
   const [theme, setTheme] = useState('');
   const [isFinished, setIsFinished] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [bestToday, setBestToday] = useState<number>(0);
-  const [bestAllTime, setBestAllTime] = useState<number>(0);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [longestStreak, setLongestStreak] = useState(0);
+  // const [bestToday, setBestToday] = useState<number>(0);
+  // const [bestAllTime, setBestAllTime] = useState<number>(0);
   const [promoVisible, setPromoVisible] = useState(false);
   window.handleStart = async () => {
     try {
@@ -68,6 +71,8 @@ export default function PuzzleRush() {
       window.currentPuzzlesMoves = [];
       setShowCountdown(true);
       setIsStarted(true);
+      setCurrentStreak(0);
+      setLongestStreak(0);
       countdownRef.current?.stop();
 
       setTimeout(() => countdownRef.current?.start(), 100);
@@ -102,6 +107,16 @@ export default function PuzzleRush() {
     const oldPov = pov;
     setPov(isCorrect ? 'correct' : 'incorrect');
     setTimeout(() => setPov(oldPov), 1700);
+
+    // обновляем серию
+    setCurrentStreak((prev) => {
+      const next = isCorrect ? prev + 1 : 0;
+      // обновляем рекордную, если нужно
+      if (next > longestStreak) {
+        setLongestStreak(next);
+      }
+      return next;
+    });
 
     try {
       if (!sessionId) throw new Error('Session ID missing');
@@ -173,27 +188,27 @@ export default function PuzzleRush() {
       window.setNextPuzzle();
     }
   }, [puzzles, isStarted]);
-  useEffect(() => {
-    if (!showResults) return;
+  // useEffect(() => {
+  //   if (!showResults) return;
 
-    const fetchRecords = async () => {
-      try {
-        const resp = await axios.get('http://localhost:5000/puzzles/record', {
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const { today, allTime } = resp.data.record;
-        setBestToday(today);
-        setBestAllTime(allTime);
-      } catch (err) {
-        console.error('Failed to load records:', err);
-      }
-    };
+  //   const fetchRecords = async () => {
+  //     try {
+  //       const resp = await axios.get('http://localhost:5000/puzzles/record', {
+  //         headers: {
+  //           Accept: 'application/json',
+  //           Authorization: `Bearer ${token}`,
+  //         },
+  //       });
+  //       const { today, allTime } = resp.data.record;
+  //       setBestToday(today);
+  //       setBestAllTime(allTime);
+  //     } catch (err) {
+  //       console.error('Failed to load records:', err);
+  //     }
+  //   };
 
-    fetchRecords();
-  }, [showResults]);
+  //   fetchRecords();
+  // }, [showResults]);
   useEffect(() => {
     // Count how many puzzles have result === false
     const falseCount = correctPuzzles.filter((p) => p.result === false).length;
@@ -207,6 +222,7 @@ export default function PuzzleRush() {
       }, 300);
     }
   }, [correctPuzzles, setShowResults, setIsStarted]);
+  const { bestToday, bestAllTime } = useRecords(showResults, token);
 
   return (
     <Container
@@ -250,11 +266,10 @@ export default function PuzzleRush() {
           {showResults && (
             <div className="rcard-overlay">
               <ResultCard
-                mood="Good!"
                 result={currentPoints}
                 today={bestToday}
                 allTime={bestAllTime}
-                longestStreak={0}
+                longestStreak={longestStreak}
                 onPlayAgain={() => window.handleStart()}
                 onAnotherMode={() => navigate('/')}
               />
@@ -284,6 +299,8 @@ export default function PuzzleRush() {
               <RushDefaultState
                 isStarted={isStarted}
                 loading={loading}
+                bestToday={bestToday}
+                bestAllTime={bestAllTime}
                 correctPuzzles={correctPuzzles}
                 countdownRef={countdownRef}
                 setRushModeCounter={setRushModeCounter}

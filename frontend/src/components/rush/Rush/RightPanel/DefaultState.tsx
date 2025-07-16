@@ -44,6 +44,8 @@ export default function RushDefaultState({
   countdownRef,
   setRushModeCounter,
   setShowResults,
+  bestAllTime,
+  bestToday,
   setIsStarted,
   showCountdown,
 }) {
@@ -99,14 +101,14 @@ export default function RushDefaultState({
       <Stack direction="row" justifyContent="space-around" mb={1}>
         <Stack alignItems="center">
           <WbSunnyIcon sx={{ color: theme.palette.text.secondary }} />
-          <Typography variant="h6">--</Typography>
+          <Typography variant="h6">{bestToday}</Typography>
           <Typography variant="caption" sx={{ textTransform: 'uppercase' }}>
             {t('rush.bestToday')}
           </Typography>
         </Stack>
         <Stack alignItems="center">
           <SyncIcon sx={{ color: theme.palette.text.secondary }} />
-          <Typography variant="h6">--</Typography>
+          <Typography variant="h6">{bestAllTime}</Typography>
           <Typography variant="caption" sx={{ textTransform: 'uppercase' }}>
             {t('rush.topScore')}
           </Typography>
