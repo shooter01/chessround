@@ -17,6 +17,8 @@ export function IconCounter({ items, columns = 5, size = 24 }: { items: CorrectP
       {items.map((item, idx) => {
         const statusClass = item.result ? 'stats-item--success' : 'stats-item--error';
         const icon = item.result ? faCheck : faTimes;
+        console.log(item);
+
         return (
           <div key={idx} className={`stats-item ${statusClass}`}>
             <span className="stats-item__icon-box" style={{ width: size, height: size }}>

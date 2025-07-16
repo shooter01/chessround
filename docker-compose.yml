@@ -42,6 +42,8 @@ services:
     depends_on:
       - db
     command: ["npx", "nodemon", "--legacy-watch", "index.js"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - keycloak-network
 

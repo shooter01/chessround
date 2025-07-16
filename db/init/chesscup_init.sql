@@ -45,3 +45,8 @@ CREATE INDEX IF NOT EXISTS idx_chesscup_sessions_lichess_id
 ALTER TABLE chesscup.chesscup_sessions
   ADD COLUMN IF NOT EXISTS current_session_puzzle_index INTEGER NOT NULL DEFAULT -1,
   ADD COLUMN IF NOT EXISTS current_session_points       INTEGER NOT NULL DEFAULT 0;
+
+  -- Уникальность по lichess_id для UPSERT
+ALTER TABLE IF EXISTS chesscup.chesscup_sessions
+  ADD CONSTRAINT IF NOT EXISTS chesscup_sessions_lichess_id_key
+  UNIQUE (lichess_id);

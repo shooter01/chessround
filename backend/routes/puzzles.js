@@ -10,145 +10,24 @@ const {
 } = require('../services/notifications');
 const { formatMessage } = require('./utils/formatMessage');
 
+const PUZZLES_API =
+  process.env.PUZZLES_API_URL || 'http://host.docker.internal:8080';
+
 // router.use(checkJwt);
 
 /**
  * [GET] /puzzles/get?level=5&theme=fork&limit=2
  */
-router.get('/get', checkJwt, async (req, res) => {
-  console.log(req.session);
-
+router.get('/get', async (req, res) => {
   const { level, theme, limit } = req.query;
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res
-      .status(401)
-      .json({ message: 'Missing Authorization header' });
-  }
-  const token = authHeader.split(' ')[1];
-  if (!token) {
-    return res
-      .status(402)
-      .json({ message: 'Invalid Authorization header format' });
-  }
-
-  console.log(token);
-
-  const result = await db.query(
-    'SELECT lichess_id FROM chesscup.chesscup_users WHERE access_token = $1',
-    [token]
-  );
-  console.log(token);
-
-  // if (result.rowCount === 0) {
-  //   return res
-  //     .status(403)
-  //     .json({ message: 'Invalid or expired token' });
-  // }
-  console.log(result.rows[0]);
-
-  // // if (!level || !theme || !limit) {
   // if (!level || !limit) {
   //   return res.status(400).json({
   //     error: 'Missing required query parameters: level, limit.',
   //   });
   // }
 
-  // const auth = req.headers.authorization;
-  // if (!auth || !auth.startsWith('Bearer ')) {
-  //   return res
-  //     .status(401)
-  //     .json({ error: 'Missing Authorization header' });
-  // }
-  // // const token = auth.slice('Bearer '.length);
-  // console.log(token);
-
-  try {
-    const response = await axios.get(
-      'https://dofrag.com/db/puzzles',
-      {
-        params: { level, theme, limit },
-        headers: { Accept: 'application/json' },
-      }
-    );
-    // не деструктурируем { puzzles } — сам ответ в data
-    const puzzles = response.data;
-
-    console.log(req.user, { level, theme: 'fork', limit });
-
-    //Determine user identity (from JWT or session)
-    // Assuming checkJwt populates req.user. Adjust according to your auth.
-    // const lichessId = req.user?.lichessId;
-    // if (!lichessId) {
-    //   return res.status(401).json({ error: 'Unauthorized' });
-    // }
-
-    // if (level == 1) {
-    //   await db.query(
-    //     `UPDATE chesscup.chesscup_sessions
-    //         SET current_session_puzzle_index = $1,
-    //             current_session_points       = $2,
-    //             updated_at                   = now()
-    //       WHERE session_id = $3`,
-    //     [newIndex, newPoints, sessionId]
-    //   );
-    // }
-
-    // First try update
-    const updateResult = await db.query(
-      `UPDATE chesscup.chesscup_sessions
-            SET puzzles = $1,
-                updated_at = now(),
-                session_id = gen_random_uuid()
-          WHERE lichess_id = $2
-          RETURNING session_id`,
-      [JSON.stringify(puzzles), result.rows[0].lichess_id]
-    );
-
-    let sessionId;
-    if (updateResult.rowCount > 0) {
-      sessionId = updateResult.rows[0].session_id;
-    } else {
-      // Insert new session
-      const insertResult = await db.query(
-        `INSERT INTO chesscup.chesscup_sessions
-             (lichess_id, puzzles)
-           VALUES($1, $2)
-           RETURNING session_id`,
-        [result.rows[0].lichess_id, JSON.stringify(puzzles)]
-      );
-      sessionId = insertResult.rows[0].session_id;
-    }
-
-    // Return puzzles and session_id
-    return res.status(200).json({ puzzles, session_id: sessionId });
-    // return res.status(200).json({ puzzles: [] });
-  } catch (error) {
-    console.error(
-      'Error fetching puzzles from dofrag:',
-      error.message
-    );
-    return res.status(502).json({
-      error: 'Failed to fetch puzzles from external service.',
-    });
-  }
-});
-
-/**
- * [POST] /puzzles/solve
- * Body: { fen: string, moves: string }  // moves как строка, точно так же, как в puzzles[i].moves
- * Header: Authorization: Bearer <token>
- */
-router.post('/solve', async (req, res) => {
-  const { fen, moves } = req.body;
-  if (!fen || typeof moves !== 'string') {
-    return res
-      .status(400)
-      .json({ error: 'Missing fen or moves in body' });
-  }
-
-  // 1) Извлекаем token
+  // 1) Извлекаем токен
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) {
     return res
@@ -158,7 +37,122 @@ router.post('/solve', async (req, res) => {
   const token = auth.slice(7);
 
   try {
-    // 2) Находим lichess_id
+    // 2) Получаем lichess_id из users
+    const userQ = await db.query(
+      `SELECT lichess_id
+         FROM chesscup.chesscup_users
+        WHERE access_token = $1`,
+      [token]
+    );
+    if (userQ.rowCount === 0) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    const lichessId = userQ.rows[0].lichess_id;
+
+    // 3) Запрашиваем список паззлов
+    const response = await axios.get(`${PUZZLES_API}/puzzles`, {
+      // params: { level, theme, limit },
+      headers: { Accept: 'application/json' },
+    });
+    const puzzles = response.data;
+
+    // 4) UPSERT в chesscup_sessions по lichess_id
+    const upsertRes = await db.query(
+      `INSERT INTO chesscup.chesscup_sessions (lichess_id, puzzles)
+       VALUES ($1, $2)
+       ON CONFLICT (lichess_id)
+       DO UPDATE
+         SET puzzles     = EXCLUDED.puzzles,
+             updated_at  = now(),
+             session_id  = gen_random_uuid()
+       RETURNING session_id`,
+      [lichessId, JSON.stringify(puzzles)]
+    );
+    const sessionId = upsertRes.rows[0].session_id;
+
+    // 5) Если level = 1, сбрасываем points в 0
+    if (Number(level) === 1) {
+      await db.query(
+        `UPDATE chesscup.chesscup_sessions
+            SET current_session_points = 0,
+                current_session_puzzle_index = 0,
+                updated_at            = now()
+          WHERE session_id = $1`,
+        [sessionId]
+      );
+    }
+
+    // 6) Возвращаем паззлы и session_id
+    return res.json({ puzzles, session_id: sessionId });
+  } catch (err) {
+    console.error('Error in /puzzles/get:', err);
+    if (err.isAxiosError) {
+      return res.status(502).json({
+        error: 'Failed to fetch puzzles from external service.',
+      });
+    }
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+/**
+ * [GET] /puzzles/:puzzleid
+ * Path‑параметр: puzzleid
+ */
+router.get('/:puzzleid', async (req, res) => {
+  const { puzzleid } = req.params;
+  try {
+    // Запрашиваем конкретный пазл у puzzles‑API
+    const response = await axios.get(
+      `${PUZZLES_API}/puzzles/${encodeURIComponent(puzzleid)}`,
+      { headers: { Accept: 'application/json' } }
+    );
+    return res.json(response.data);
+  } catch (err) {
+    console.error('Error in GET /puzzles/:puzzleid:', err);
+    // если внешний сервис вернул 404
+    if (err.response?.status === 404) {
+      return res.status(404).json({ error: 'Puzzle not found' });
+    }
+    // другие ошибки сети/сервиса
+    if (err.isAxiosError) {
+      return res
+        .status(502)
+        .json({
+          error: 'Failed to fetch puzzle from external service.',
+        });
+    }
+    // всё остальное
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+/**
+ * [POST] /puzzles/solve
+ * BODY: { fen: string, moves: string, session_id: string }
+ * Заголовок: Authorization: Bearer <token>
+ */
+router.post('/solve', async (req, res) => {
+  const { fen, moves, session_id: sessionIdFromBody } = req.body;
+
+  // 1) Валидация входных данных
+  if (!fen || typeof moves !== 'string' || !sessionIdFromBody) {
+    return res
+      .status(400)
+      .json({ error: 'Missing fen, moves or session_id in body' });
+  }
+
+  // 2) Проверяем заголовок авторизации
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith('Bearer ')) {
+    return res
+      .status(401)
+      .json({ error: 'Missing or invalid Authorization header' });
+  }
+  const token = auth.slice(7);
+
+  try {
+    // 3) Определяем lichess_id по токену
     const userRes = await db.query(
       `SELECT lichess_id
          FROM chesscup.chesscup_users
@@ -170,18 +164,21 @@ router.post('/solve', async (req, res) => {
     }
     const lichessId = userRes.rows[0].lichess_id;
 
-    // 3) Берём текущую сессию вместе с индексом и очками
+    // 4) Достаём сессию по lichess_id и session_id
     const sessRes = await db.query(
       `SELECT session_id,
               puzzles,
               current_session_puzzle_index,
               current_session_points
          FROM chesscup.chesscup_sessions
-        WHERE lichess_id = $1`,
-      [lichessId]
+        WHERE lichess_id = $1
+          AND session_id = $2`,
+      [lichessId, sessionIdFromBody]
     );
     if (sessRes.rowCount === 0) {
-      return res.status(404).json({ error: 'Session not found' });
+      return res
+        .status(400)
+        .json({ error: 'Invalid or expired session_id' });
     }
     const {
       session_id: sessionId,
@@ -190,7 +187,7 @@ router.post('/solve', async (req, res) => {
       current_session_points: currentPoints,
     } = sessRes.rows[0];
 
-    // 4) Парсим puzzles и находим индекс по fen
+    // 5) Парсим puzzles и находим индекс текущего паззла
     let puzzles;
     try {
       puzzles = JSON.parse(puzzlesText);
@@ -206,17 +203,13 @@ router.post('/solve', async (req, res) => {
       });
     }
 
-    // 5) Логика инкремента:
-    // Если найденный idx совпадает с тем, что в currentIndex — значит
-    // пользователь решил текущий паззл, и мы двигаем указатель вперёд
+    // 6) Вычисляем новый индекс и очки
     const newIndex = idx === currentIndex ? currentIndex + 1 : idx;
-
-    // Если moves совпадают с эталонными ходами — даём +1 очко
-    const correctMoves = puzzles[idx].moves; // строка из БД
+    const correctMoves = puzzles[idx].moves;
     const gainedPoint = moves === correctMoves ? 1 : 0;
     const newPoints = currentPoints + gainedPoint;
 
-    // 6) Обновляем сессию
+    // 7) Обновляем сессию
     await db.query(
       `UPDATE chesscup.chesscup_sessions
           SET current_session_puzzle_index = $1,
@@ -226,7 +219,7 @@ router.post('/solve', async (req, res) => {
       [newIndex, newPoints, sessionId]
     );
 
-    // 7) Ответ клиенту
+    // 8) Возвращаем обновлённые данные
     return res.json({
       session_id: sessionId,
       current_index: newIndex,

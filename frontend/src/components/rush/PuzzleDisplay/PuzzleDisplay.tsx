@@ -5,40 +5,58 @@ import { Container, Grid, Box, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { Chess, SQUARES } from 'chess.js';
 import Board from '../Board/Board';
-import { puzzles } from './mocks/mock';
 import './styles.css';
 import { Chessground } from 'chessground';
 import CurrentPuzzle from '../Rush/current/current';
+import axios from 'axios';
+import { useParams } from 'react-router-dom';
 
 if (!window.site) window.site = {} as Site;
 if (!window.site.load)
   window.site.load = new Promise<void>((resolve) => {
     document.addEventListener('DOMContentLoaded', () => resolve());
   });
-
+interface Puzzle {
+  puzzle_id: string;
+  fen: string;
+  moves: string;
+  rating: number;
+  /* … остальные поля при необходимости */
+}
 export default function PuzzleDisplay() {
-  const puzzle = puzzles[0];
+  // читаем puzzleId из URL: <Route path="/puzzle/:puzzleId" …>
+  const { puzzle_id } = useParams<{ puzzle_id: string }>();
 
-  const [pov, setPov] = useState<'white' | 'black'>('white');
-  const [fen, setFen] = useState<string>(puzzle.fen);
+  const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
+  const [fen, setFen] = useState<string>('');
 
-  // we assume puzzles[0] is the one we’re displaying
-  const { puzzle_id } = puzzle;
   useEffect(() => {
-    setTimeout(() => {
-      window.puzzlesCounter = -1;
-      window.currentPuzzle = new CurrentPuzzle(window.puzzlesCounter, puzzle);
-      window.chess = new Chess(fen);
-      window.chess.move(currentPuzzle.expectedMove());
-      // setPov(window.currentPuzzle.pov);
-      // const cg = Chessground(document.getElementById('chessground-examples'));
-      // window.cg = cg;
-      // console.log(currentPuzzle.expectedMove());
-      setFen(chess.fen());
-      window.setPosition();
-    }, 500);
-  }, [fen, puzzle]);
+    if (!puzzle_id) return;
 
+    // 1) Запрашиваем пазл по ID у Node-бэка
+    axios
+      .get<Puzzle>(`http://localhost:5000/puzzles/${encodeURIComponent(puzzle_id)}`)
+      .then((res) => {
+        setPuzzle(res.data);
+        setFen(res.data.fen);
+        // инициализируем Chess и CurrentPuzzle
+        window.puzzlesCounter = -1;
+        window.currentPuzzle = new CurrentPuzzle(window.puzzlesCounter, res.data);
+        window.chess = new Chess(res.data.fen);
+        window.chess.move(window.currentPuzzle.expectedMove());
+        setFen(window.chess.fen());
+        window.setPosition();
+      })
+      .catch((err) => {
+        console.error('Failed to load puzzle:', err);
+      });
+  }, [puzzle_id]);
+
+  if (!puzzle) {
+    return <div>Loading puzzle…</div>;
+  }
+
+  // Ссылка в правой панели
   const analysisUrl = `https://lichess.org/analysis/${fen}`;
 
   return (
@@ -46,45 +64,16 @@ export default function PuzzleDisplay() {
       <Grid
         container
         spacing={2}
-        sx={{
-          width: '100%',
-          maxWidth: 1400,
-          justifyContent: 'center',
-          mx: 'auto',
-        }}
+        sx={{ width: '100%', maxWidth: 1400, justifyContent: 'center', mx: 'auto' }}
       >
-        {/* Left: board */}
-        <Grid
-          item
-          xs={12}
-          md={8}
-          sx={{
-            position: 'relative',
-            display: 'flex',
-            justifyContent: 'center',
-          }}
-        >
+        {/* Левая часть: доска */}
+        <Grid item xs={12} md={8} sx={{ display: 'flex', justifyContent: 'center' }}>
           <Board />
         </Grid>
 
-        {/* Right: controls */}
-        <Grid
-          item
-          xs={12}
-          md={4}
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-          }}
-        >
-          <Box
-            sx={{
-              width: '100%',
-              maxWidth: 360,
-              mx: 'auto',
-              textAlign: 'center',
-            }}
-          >
+        {/* Правая часть: кнопки */}
+        <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Box sx={{ width: '100%', maxWidth: 360, textAlign: 'center' }}>
             <Button
               component="a"
               href={analysisUrl}
@@ -97,7 +86,7 @@ export default function PuzzleDisplay() {
             >
               Analyze on lichess.org
             </Button>
-            {/* you can add more controls/buttons here */}
+            {/* здесь могут быть другие контролы */}
           </Box>
         </Grid>
       </Grid>

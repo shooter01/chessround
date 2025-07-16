@@ -44,6 +44,7 @@ export default function PuzzleRush() {
   const { user, token } = useAuth(); // предполагается, что здесь есть ваш JWT
   console.log(user);
   console.log(token);
+  const [sessionId, setSessionId] = useState<string | null>(null); // <— добавили
 
   const [pov, setPov] = useState<'white' | 'black'>('white');
   const [showResults, setShowResults] = useState<boolean>(false);
@@ -62,11 +63,11 @@ export default function PuzzleRush() {
   const level = 1;
   // const theme = 'fork';
   const limit = 5;
+  console.log(puzzles);
 
   const [promoVisible, setPromoVisible] = useState(false);
   window.handleStart = async () => {
     try {
-      // Сброс стейта
       setShowResults(false);
       setIsFinished(false);
       setCorrectPuzzles([]);
@@ -75,48 +76,62 @@ export default function PuzzleRush() {
       setIsStarted(true);
       countdownRef.current?.stop();
 
-      // Запуск таймера через 100 мс
       setTimeout(() => countdownRef.current?.start(), 100);
 
-      // Запрос паззлов с бэкенда на порту 5000
-      const { data } = await axios.get('http://localhost:5000/puzzles/get', {
-        params: { level, theme, limit },
-        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-        withCredentials: true, // при необходимости для куки
-      });
-      console.log(data);
-
-      // Сохраняем и начинаем
-      setPuzzles(data.puzzles);
-      // setCurrentIndex(-1);
-      setTimeout(() => window.setNextPuzzle(), 100);
-    } catch (err) {
-      console.error('Не удалось загрузить паззлы:', err);
-      // можно показать уведомление об ошибке
-    }
-  };
-  window.setCorrect = async (isCorrect, fen) => {
-    const oldPov = pov;
-    setPov(isCorrect ? 'correct' : 'incorrect');
-    setTimeout(() => {
-      setPov(oldPov);
-    }, 1700);
-
-    await axios.post(
-      'http://localhost:5000/puzzles/solve',
-      {
-        fen: window.currentPuzzle.startFen,
-        moves: currentPuzzlesMoves.join(' '),
-        result: isCorrect ? 'win' : 'lose', // если нужно
-      },
-      {
+      setLoading(true);
+      const { data } = await axios.get<{
+        puzzles: any[];
+        session_id: string;
+      }>('http://localhost:5000/puzzles/get', {
+        // params: { level, theme, limit },
         headers: {
           Accept: 'application/json',
-          Authorization: `Bearer ${token}`, // ваш JWT
+          Authorization: `Bearer ${token}`,
         },
-        withCredentials: true, // если используете куки
-      },
-    );
+        withCredentials: true,
+      });
+      setLoading(false);
+
+      // Сохраняем паззлы и session_id
+      setPuzzles(data.puzzles.puzzles);
+      setSessionId(data.session_id); // <— сохраняем
+
+      // Старт первого паззла
+      // setTimeout(() => window.setNextPuzzle(), 2000);
+    } catch (err) {
+      setLoading(false);
+      console.error('Не удалось загрузить паззлы:', err);
+      setError('Ошибка при загрузке паззлов');
+    }
+  };
+  window.setCorrect = async (isCorrect: boolean) => {
+    const oldPov = pov;
+    setPov(isCorrect ? 'correct' : 'incorrect');
+    setTimeout(() => setPov(oldPov), 1700);
+
+    try {
+      if (!sessionId) throw new Error('Session ID missing');
+      const puzzle = puzzles[window.puzzlesCounter];
+
+      await axios.post(
+        'http://localhost:5000/puzzles/solve',
+        {
+          session_id: sessionId, // <— отправляем сюда
+          fen: puzzle.fen,
+          moves: window.currentPuzzlesMoves.join(' '),
+          result: isCorrect ? 'win' : 'lose',
+        },
+        {
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          withCredentials: true,
+        },
+      );
+    } catch (e) {
+      console.error('Не удалось отправить результат паззла:', e);
+    }
   };
 
   window.setNextPuzzle = async () => {
@@ -148,13 +163,20 @@ export default function PuzzleRush() {
       setCorrectPuzzles((prev) => [
         ...prev,
         {
-          id: current.puzzle.id,
+          id: current.puzzle.puzzle_id,
           rating: current.puzzle.rating,
           result,
         },
       ]);
     };
   }, []);
+  useEffect(() => {
+    // Расширяем Window интерфейс, чтобы TS не ругался:
+
+    if (puzzles.length > 0 && isStarted) {
+      window.setNextPuzzle();
+    }
+  }, [puzzles, isStarted]);
   useEffect(() => {
     // Count how many puzzles have result === false
     const falseCount = correctPuzzles.filter((p) => p.result === false).length;
