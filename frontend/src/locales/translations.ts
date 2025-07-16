@@ -37,7 +37,7 @@ export const resources = {
         globalTab: 'Global',
         friendsTab: 'Friends',
         personalTab: 'Personal',
-        startButton: 'Start Puzzle Rush',
+        startButton: 'Start',
         range: {
           daily: 'Daily',
           weekly: 'Weekly',
@@ -90,7 +90,7 @@ export const resources = {
         globalTab: 'Глобально',
         friendsTab: 'Друзья',
         personalTab: 'Личные',
-        startButton: 'Начать Puzzle Rush',
+        startButton: 'Начать',
         range: {
           daily: 'Ежедневно',
           weekly: 'Еженедельно',

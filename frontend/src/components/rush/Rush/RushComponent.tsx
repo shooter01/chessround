@@ -299,6 +299,7 @@ export default function PuzzleRush() {
               <RushDefaultState
                 isStarted={isStarted}
                 loading={loading}
+                token={token}
                 bestToday={bestToday}
                 bestAllTime={bestAllTime}
                 correctPuzzles={correctPuzzles}
