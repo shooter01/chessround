@@ -50,3 +50,13 @@ ALTER TABLE chesscup.chesscup_sessions
 ALTER TABLE IF EXISTS chesscup.chesscup_sessions
   ADD CONSTRAINT IF NOT EXISTS chesscup_sessions_lichess_id_key
   UNIQUE (lichess_id);
+CREATE TABLE chesscup.user_points_history (
+  session_id   UUID        PRIMARY key,
+  lichess_id   TEXT        NOT NULL
+                           REFERENCES chesscup.chesscup_users(lichess_id)
+                           ON DELETE CASCADE,
+  points       INT         NOT NULL,     -- текущее значение очков
+  recorded_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- индекс по lichess_id, если нужно фильтровать по пользователю
+CREATE INDEX ON chesscup.user_points_history(lichess_id);

@@ -1,39 +1,25 @@
-:root {
-  /* ваши переменные */
-  --primary: #28a745;
-  --primary-dark: #1f8c3a;
-  --bg-card: #ffffff;
-  --text-dark: #222222;
-  --text-light: #666666;
-  --divider: #e0e0e0;
-  --radius: 12px;
-  --shadow-dark: rgba(0,0,0,0.15);
-}
+/* ====================================================
+   ResultCardModern Component Styles
+   ==================================================== */
 
-/* сама карточка — жёсткий, белый фон, без backdrop-filter! */
+/* Container */
 .rcard-modern {
-  background: var(--bg-card);
-  border-radius: var(--radius);
-  box-shadow: 0 8px 24px var(--shadow-dark);
+  /* Injected CSS variables (e.g. --primary, --primary-dark, --btn-bg, --btn-hover) */
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   width: 340px;
   max-width: 90%;
   overflow: hidden;
+  font-family: 'Segoe UI', sans-serif;
+  color: #222; /* fallback text color */
 
-  /* анимация появления */
+  /* entry animation */
   transform: translateY(20px);
   opacity: 0;
   animation: slideIn 0.4s ease-out forwards;
-  font-family: 'Segoe UI', sans-serif;
-  color: var(--text-dark);
 }
 
-/* убираем любой blur или прозрачность внутри карточки */
-.rcard-modern,
-.rcard-modern * {
-  backdrop-filter: none !important;
-}
-
-/* повторяем анимацию */
+/* slide-in animation */
 @keyframes slideIn {
   to {
     transform: translateY(0);
@@ -43,41 +29,46 @@
 
 /* HEADER */
 .rcard-modern__header {
+  /* gradient uses current theme variables */
   background: linear-gradient(135deg, var(--primary-dark), var(--primary));
   padding: 16px;
   text-align: center;
 }
+
 .rcard-modern__mood {
   margin: 0;
   color: #fff;
   font-size: 1.5rem;
   font-weight: 600;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 /* BODY */
 .rcard-modern__body {
   padding: 20px;
-  background: var(--bg-card);
+  background: #fff;
 }
+
 .rcard-modern__label {
   margin: 0;
   font-size: 0.85rem;
-  color: var(--text-light);
+  color: #666;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
+
 .rcard-modern__result {
   margin: 8px 0 0;
   font-size: 3rem;
   font-weight: 700;
   line-height: 1;
-  color: var(--text-dark);
+  color: #222;
   text-align: center;
 }
+
 .rcard-modern__divider {
   height: 1px;
-  background: var(--divider);
+  background: #e0e0e0;
   margin: 20px 0;
 }
 
@@ -87,31 +78,71 @@
   justify-content: space-around;
   gap: 12px;
 }
+
 .rcard-modern__stat {
   display: flex;
   flex-direction: column;
   align-items: center;
 }
+
 .rcard-modern__stat-icon {
   font-size: 1.4rem;
   color: var(--primary);
   margin-bottom: 6px;
   transition: transform 0.3s;
 }
+
 .rcard-modern__stat:hover .rcard-modern__stat-icon {
   transform: translateY(-4px) scale(1.1);
 }
+
 .rcard-modern__stat-value {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--text-dark);
+  color: #222;
 }
+
 .rcard-modern__stat-label {
   font-size: 0.7rem;
-  color: var(--text-light);
+  color: #666;
   margin-top: 2px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+/* STREAK */
+.rcard-modern__streak-wrapper {
+  margin: 0 auto 20px;
+  width: 80%;
+}
+
+.rcard-modern__streak-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rcard-modern__streak-table td {
+  padding: 8px;
+  border: 1px solid #e0e0e0;
+  font-size: 0.9rem;
+}
+
+.rcard-modern__streak-icon-cell {
+  width: 24px;
+  text-align: center;
+  color: var(--primary);
+}
+
+.rcard-modern__streak-label-cell {
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rcard-modern__streak-value-cell {
+  text-align: right;
+  font-weight: 600;
+  color: #222;
 }
 
 /* BUTTONS */
@@ -119,63 +150,32 @@
   width: 100%;
   padding: 12px 0;
   border: none;
-  border-radius: var(--radius);
+  border-radius: 12px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   position: relative;
   overflow: hidden;
   transition: transform 0.1s;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   margin-bottom: 12px;
 }
+
 .rcard-modern__btn:active {
   transform: scale(0.98);
 }
+
+/* Primary button uses theme variables for background */
 .rcard-modern__btn--primary {
-  background: var(--primary);
+  background-color: var(--btn-bg);
   color: #fff;
 }
+.rcard-modern__btn--primary:hover {
+  background-color: var(--btn-hover);
+}
+
+/* Secondary button remains neutral */
 .rcard-modern__btn--secondary {
   background: #f5f5f5;
-  color: var(--text-dark);
-}
-/* Обёртка, чтобы выровнять и отступить */
-.rcard-modern__streak-wrapper {
-  margin: 0 auto 20px;
-  width: 80%; /* или 100% по желанию */
-}
-
-/* Сама таблица */
-.rcard-modern__streak-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-/* Ячейки таблицы */
-.rcard-modern__streak-table td {
-  padding: 8px;
-  border: 1px solid var(--divider);
-  font-size: 0.9rem;
-}
-
-/* Иконка в первой ячейке */
-.rcard-modern__streak-icon-cell {
-  width: 24px;
-  text-align: center;
-  color: var(--primary);
-}
-
-/* Лейбл */
-.rcard-modern__streak-label-cell {
-  color: var(--text-light);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-/* Значение */
-.rcard-modern__streak-value-cell {
-  text-align: right;
-  font-weight: 600;
-  color: var(--text-dark);
+  color: #222;
 }

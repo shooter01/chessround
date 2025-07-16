@@ -64,23 +64,13 @@ router.get('/get', async (req, res) => {
        DO UPDATE
          SET puzzles     = EXCLUDED.puzzles,
              updated_at  = now(),
-             session_id  = gen_random_uuid()
+             session_id  = gen_random_uuid(),
+             current_session_points = 0,
+             current_session_puzzle_index = 0
        RETURNING session_id`,
-      [lichessId, JSON.stringify(puzzles)]
+      [lichessId, JSON.stringify(puzzles.puzzles)]
     );
     const sessionId = upsertRes.rows[0].session_id;
-
-    // 5) Если level = 1, сбрасываем points в 0
-    if (Number(level) === 1) {
-      await db.query(
-        `UPDATE chesscup.chesscup_sessions
-            SET current_session_points = 0,
-                current_session_puzzle_index = 0,
-                updated_at            = now()
-          WHERE session_id = $1`,
-        [sessionId]
-      );
-    }
 
     // 6) Возвращаем паззлы и session_id
     return res.json({ puzzles, session_id: sessionId });
@@ -96,41 +86,8 @@ router.get('/get', async (req, res) => {
 });
 
 /**
- * [GET] /puzzles/:puzzleid
- * Path‑параметр: puzzleid
- */
-router.get('/:puzzleid', async (req, res) => {
-  const { puzzleid } = req.params;
-  try {
-    // Запрашиваем конкретный пазл у puzzles‑API
-    const response = await axios.get(
-      `${PUZZLES_API}/puzzles/${encodeURIComponent(puzzleid)}`,
-      { headers: { Accept: 'application/json' } }
-    );
-    return res.json(response.data);
-  } catch (err) {
-    console.error('Error in GET /puzzles/:puzzleid:', err);
-    // если внешний сервис вернул 404
-    if (err.response?.status === 404) {
-      return res.status(404).json({ error: 'Puzzle not found' });
-    }
-    // другие ошибки сети/сервиса
-    if (err.isAxiosError) {
-      return res
-        .status(502)
-        .json({
-          error: 'Failed to fetch puzzle from external service.',
-        });
-    }
-    // всё остальное
-    return res.status(500).json({ error: 'Internal server error.' });
-  }
-});
-
-/**
  * [POST] /puzzles/solve
  * BODY: { fen: string, moves: string, session_id: string }
- * Заголовок: Authorization: Bearer <token>
  */
 router.post('/solve', async (req, res) => {
   const { fen, moves, session_id: sessionIdFromBody } = req.body;
@@ -219,7 +176,19 @@ router.post('/solve', async (req, res) => {
       [newIndex, newPoints, sessionId]
     );
 
-    // 8) Возвращаем обновлённые данные
+    // 8) Логируем историю очков: вставляем или обновляем по session_id
+    await db.query(
+      `INSERT INTO chesscup.user_points_history
+         (session_id, lichess_id, points)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (session_id)
+       DO UPDATE
+         SET points      = EXCLUDED.points,
+             recorded_at = now()`,
+      [sessionId, lichessId, newPoints]
+    );
+
+    // 9) Возвращаем обновлённые данные
     return res.json({
       session_id: sessionId,
       current_index: newIndex,
@@ -228,6 +197,96 @@ router.post('/solve', async (req, res) => {
   } catch (err) {
     console.error('Error in /puzzles/solve:', err);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * [GET] /puzzles/record
+ * Возвращает лучший результат пользователя за сегодня и за всё время.
+ * Заголовок: Authorization: Bearer <token>
+ */
+router.get('/record', async (req, res) => {
+  // 1) Проверяем заголовок авторизации
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith('Bearer ')) {
+    return res
+      .status(401)
+      .json({ error: 'Missing or invalid Authorization header' });
+  }
+  const token = auth.slice(7);
+
+  try {
+    // 2) Определяем lichess_id по токену
+    const userQ = await db.query(
+      `SELECT lichess_id
+         FROM chesscup.chesscup_users
+        WHERE access_token = $1`,
+      [token]
+    );
+    if (userQ.rowCount === 0) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    const lichessId = userQ.rows[0].lichess_id;
+
+    // 3) Лучший результат за всё время
+    const allTimeQ = await db.query(
+      `SELECT COALESCE(MAX(points), 0) AS best
+         FROM chesscup.user_points_history
+        WHERE lichess_id = $1`,
+      [lichessId]
+    );
+    const bestAllTime = allTimeQ.rows[0].best;
+
+    // 4) Лучший результат за сегодня
+    const todayQ = await db.query(
+      `SELECT COALESCE(MAX(points), 0) AS best
+         FROM chesscup.user_points_history
+        WHERE lichess_id = $1
+          AND recorded_at >= date_trunc('day', now())`,
+      [lichessId]
+    );
+    const bestToday = todayQ.rows[0].best;
+
+    // 5) Отдаём ответ
+    return res.json({
+      record: {
+        today: bestToday,
+        allTime: bestAllTime,
+      },
+    });
+  } catch (err) {
+    console.error('Error in GET /puzzles/record:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * [GET] /puzzles/:puzzleid
+ * Path‑параметр: puzzleid
+ */
+router.get('/:puzzleid', async (req, res) => {
+  const { puzzleid } = req.params;
+  try {
+    // Запрашиваем конкретный пазл у puzzles‑API
+    const response = await axios.get(
+      `${PUZZLES_API}/puzzles/${encodeURIComponent(puzzleid)}`,
+      { headers: { Accept: 'application/json' } }
+    );
+    return res.json(response.data);
+  } catch (err) {
+    console.error('Error in GET /puzzles/:puzzleid:', err);
+    // если внешний сервис вернул 404
+    if (err.response?.status === 404) {
+      return res.status(404).json({ error: 'Puzzle not found' });
+    }
+    // другие ошибки сети/сервиса
+    if (err.isAxiosError) {
+      return res.status(502).json({
+        error: 'Failed to fetch puzzle from external service.',
+      });
+    }
+    // всё остальное
+    return res.status(500).json({ error: 'Internal server error.' });
   }
 });
 

@@ -42,8 +42,6 @@ export default function PuzzleRush() {
   const navigate = useNavigate();
   const [puzzles, setPuzzles] = useState([]);
   const { user, token } = useAuth(); // предполагается, что здесь есть ваш JWT
-  console.log(user);
-  console.log(token);
   const [sessionId, setSessionId] = useState<string | null>(null); // <— добавили
 
   const [pov, setPov] = useState<'white' | 'black'>('white');
@@ -54,17 +52,13 @@ export default function PuzzleRush() {
 
   const [loading, setLoading] = useState(false);
   const [rushModeCounter, setRushModeCounter] = useState(300000);
+  const [currentPoints, setCurrentPoints] = useState(0);
   const [isStarted, setIsStarted] = useState(false);
   const [theme, setTheme] = useState('');
   const [isFinished, setIsFinished] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Параметры запроса – можно взять из селектора, URL, контекста…
-  const level = 1;
-  // const theme = 'fork';
-  const limit = 5;
-  console.log(puzzles);
-
+  const [bestToday, setBestToday] = useState<number>(0);
+  const [bestAllTime, setBestAllTime] = useState<number>(0);
   const [promoVisible, setPromoVisible] = useState(false);
   window.handleStart = async () => {
     try {
@@ -113,7 +107,7 @@ export default function PuzzleRush() {
       if (!sessionId) throw new Error('Session ID missing');
       const puzzle = puzzles[window.puzzlesCounter];
 
-      await axios.post(
+      const result = await axios.post(
         'http://localhost:5000/puzzles/solve',
         {
           session_id: sessionId, // <— отправляем сюда
@@ -129,6 +123,8 @@ export default function PuzzleRush() {
           withCredentials: true,
         },
       );
+
+      setCurrentPoints(result.data.current_points);
     } catch (e) {
       console.error('Не удалось отправить результат паззла:', e);
     }
@@ -177,6 +173,27 @@ export default function PuzzleRush() {
       window.setNextPuzzle();
     }
   }, [puzzles, isStarted]);
+  useEffect(() => {
+    if (!showResults) return;
+
+    const fetchRecords = async () => {
+      try {
+        const resp = await axios.get('http://localhost:5000/puzzles/record', {
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const { today, allTime } = resp.data.record;
+        setBestToday(today);
+        setBestAllTime(allTime);
+      } catch (err) {
+        console.error('Failed to load records:', err);
+      }
+    };
+
+    fetchRecords();
+  }, [showResults]);
   useEffect(() => {
     // Count how many puzzles have result === false
     const falseCount = correctPuzzles.filter((p) => p.result === false).length;
@@ -234,9 +251,9 @@ export default function PuzzleRush() {
             <div className="rcard-overlay">
               <ResultCard
                 mood="Good!"
-                result={0}
-                today={1}
-                allTime={23}
+                result={currentPoints}
+                today={bestToday}
+                allTime={bestAllTime}
                 longestStreak={0}
                 onPlayAgain={() => window.handleStart()}
                 onAnotherMode={() => navigate('/')}
