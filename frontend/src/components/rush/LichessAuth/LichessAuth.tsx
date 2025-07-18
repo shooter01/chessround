@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Container, Box, CircularProgress, Typography } from '@mui/material';
+import { API_BASE } from '@api/api';
 
 export default function PuzzleDisplay() {
   const [authUri, setAuthUri] = useState<string | null>(null);
@@ -10,7 +11,7 @@ export default function PuzzleDisplay() {
 
   useEffect(() => {
     // Fetch the authorization URI on component mount
-    fetch('http://localhost:5000/lichess_auth/auth')
+    fetch(`${API_BASE}/lichess_auth/auth`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         return res.json();

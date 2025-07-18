@@ -14,8 +14,7 @@ import {
   useTheme,
   SelectChangeEvent,
 } from '@mui/material';
-import WbSunnyIcon from '@mui/icons-material/CalendarToday';
-import SyncIcon from '@mui/icons-material/Autorenew';
+import { API_BASE } from '@api/api';
 
 export interface Player {
   rank: number;
@@ -41,7 +40,7 @@ const LeaderboardTab: React.FC<LeaderboardTabProps> = ({ token }) => {
     setError(null);
 
     axios
-      .get<Player[]>(`http://localhost:5000/leaderboard?range=${range}&mode=${mode}`, {
+      .get<Player[]>(`${API_BASE}/leaderboard?range=${range}&mode=${mode}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((resp) => setPlayers(resp.data))

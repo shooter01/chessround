@@ -1,6 +1,7 @@
 // hooks/useRecords.ts
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE } from '@api/api';
 
 export function useRecords(mode: string, token: string) {
   const [bestToday, setBestToday] = useState(0);
@@ -12,7 +13,7 @@ export function useRecords(mode: string, token: string) {
 
     const fetchRecords = async () => {
       try {
-        const resp = await axios.get('http://localhost:5000/puzzles/record', {
+        const resp = await axios.get(`${API_BASE}/puzzles/record`, {
           params: { mode },
           headers: {
             Accept: 'application/json',

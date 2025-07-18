@@ -10,6 +10,7 @@ import { Chessground } from 'chessground';
 import CurrentPuzzle from '../Rush/current/current';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
+import { API_BASE } from '@api/api';
 
 if (!window.site) window.site = {} as Site;
 if (!window.site.load)
@@ -35,7 +36,7 @@ export default function PuzzleDisplay() {
 
     // 1) Запрашиваем пазл по ID у Node-бэка
     axios
-      .get<Puzzle>(`http://localhost:5000/puzzles/${encodeURIComponent(puzzle_id)}`)
+      .get<Puzzle>(`${API_BASE}/puzzles/${encodeURIComponent(puzzle_id)}`)
       .then((res) => {
         setPuzzle(res.data);
         setFen(res.data.fen);

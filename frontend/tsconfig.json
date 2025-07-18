@@ -1,0 +1,18 @@
+// tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "jsx": "react-jsx",
+    "strict": true,
+    "baseUrl": ".",                     // 👉 здесь
+    "paths": {
+      "@/*": ["src/*"],                 // алиас на src
+      "@api/*": ["src/api/*"],          // алиас на src/api
+      "@context/*": ["src/context/*"]   // алиас на src/context
+    },
+    // ... остальные ваши опции
+  },
+  "include": ["src"],                   // чтобы TS брал все из src
+  "exclude": ["node_modules", "dist"]
+}

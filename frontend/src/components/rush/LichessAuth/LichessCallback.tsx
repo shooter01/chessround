@@ -1,6 +1,7 @@
 // LichessCallback.jsx
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE } from '@api/api';
 
 export default function LichessCallback() {
   const nav = useNavigate();
@@ -14,7 +15,7 @@ export default function LichessCallback() {
       return;
     }
     const verifier = localStorage.getItem('pkce_verifier');
-    fetch('http://localhost:5000/lichess_auth/callback', {
+    fetch(`${API_BASE}/lichess_auth/callback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, verifier }),

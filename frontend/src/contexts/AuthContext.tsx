@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios from 'axios';
 import { CircularProgress, Box, Typography } from '@mui/material';
+import { API_BASE } from '@api/api';
 
 // Тип пользователя
 export interface User {
@@ -35,7 +36,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Функция для logout: вызывает бекенд, очищает state
   const logout = async () => {
     try {
-      await axios.post('http://localhost:5000/lichess_auth/logout', {}, { withCredentials: true });
+      await axios.post(`${API_BASE}/lichess_auth/logout`, {}, { withCredentials: true });
     } catch (err) {
       console.error('Logout failed', err);
     } finally {
@@ -46,7 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // Пытаемся получить профиль из бекенда
     axios
-      .get<User>('http://localhost:5000/lichess_auth/user', { withCredentials: true })
+      .get<User>(`${API_BASE}/lichess_auth/user`, { withCredentials: true })
       .then((res) => {
         setUser(res.data.data);
         setToken(res.data.token);

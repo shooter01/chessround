@@ -19,6 +19,7 @@ import RushStartedState from './RightPanel/RushStartedState.tsx';
 let canChangePuzzle = true;
 import { useAuth } from '../../../contexts/AuthContext.tsx';
 import { useRecords } from '../hooks/useRecords';
+import { API_BASE } from '@api/api';
 
 declare global {
   interface Window {
@@ -88,7 +89,7 @@ export default function PuzzleRush() {
       const { data } = await axios.get<{
         puzzles: any[];
         session_id: string;
-      }>('http://localhost:5000/puzzles/get', {
+      }>(`${API_BASE}/puzzles/get`, {
         params: { mode },
         headers: {
           Accept: 'application/json',
@@ -130,7 +131,7 @@ export default function PuzzleRush() {
       const puzzle = puzzles[window.puzzlesCounter];
 
       const result = await axios.post(
-        'http://localhost:5000/puzzles/solve',
+        `${API_BASE}/puzzles/solve`,
         {
           session_id: sessionId, // <— отправляем сюда
           fen: puzzle.fen,
@@ -195,27 +196,6 @@ export default function PuzzleRush() {
       window.setNextPuzzle();
     }
   }, [puzzles, isStarted]);
-  // useEffect(() => {
-  //   if (!showResults) return;
-
-  //   const fetchRecords = async () => {
-  //     try {
-  //       const resp = await axios.get('http://localhost:5000/puzzles/record', {
-  //         headers: {
-  //           Accept: 'application/json',
-  //           Authorization: `Bearer ${token}`,
-  //         },
-  //       });
-  //       const { today, allTime } = resp.data.record;
-  //       setBestToday(today);
-  //       setBestAllTime(allTime);
-  //     } catch (err) {
-  //       console.error('Failed to load records:', err);
-  //     }
-  //   };
-
-  //   fetchRecords();
-  // }, [showResults]);
   useEffect(() => {
     // Count how many puzzles have result === false
     const falseCount = correctPuzzles.filter((p) => p.result === false).length;
@@ -232,14 +212,7 @@ export default function PuzzleRush() {
   const { bestToday, bestAllTime } = useRecords(mode, token);
 
   return (
-    <Container
-      maxWidth="lg"
-      // sx={{
-      //   display: 'flex',
-      //   justifyContent: 'center',
-      //   alignItems: 'center',
-      // }}
-    >
+    <Container maxWidth="lg">
       <Grid
         container
         spacing={2}
