@@ -29,7 +29,9 @@ interface LeaderboardTabProps {
 
 const LeaderboardTab: React.FC<LeaderboardTabProps> = ({ token }) => {
   const theme = useTheme();
-  const [range, setRange] = useState<'daily' | 'all'>('all');
+
+  const [range, setRange] = useState<'daily' | 'weekly' | 'all'>('all');
+  const [mode, setMode] = useState<'3m' | '5m' | 'survival'>('3m');
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +41,7 @@ const LeaderboardTab: React.FC<LeaderboardTabProps> = ({ token }) => {
     setError(null);
 
     axios
-      .get<Player[]>(`http://localhost:5000/leaderboard?range=${range}`, {
+      .get<Player[]>(`http://localhost:5000/leaderboard?range=${range}&mode=${mode}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((resp) => setPlayers(resp.data))
@@ -48,21 +50,36 @@ const LeaderboardTab: React.FC<LeaderboardTabProps> = ({ token }) => {
         setError('Не удалось загрузить таблицу лидеров');
       })
       .finally(() => setLoading(false));
-  }, [range, token]);
+  }, [range, mode, token]);
 
-  const handleRangeChange = (e: SelectChangeEvent<'daily' | 'all'>) => {
-    setRange(e.target.value as 'daily' | 'all');
+  const onRangeChange = (e: SelectChangeEvent) => {
+    setRange(e.target.value as any);
+  };
+  const onModeChange = (e: SelectChangeEvent) => {
+    setMode(e.target.value as any);
   };
 
   return (
     <Box>
-      <FormControl size="small" sx={{ mb: 2, minWidth: 120 }}>
-        <InputLabel id="lb-range-label">Range</InputLabel>
-        <Select labelId="lb-range-label" value={range} label="Range" onChange={handleRangeChange}>
-          <MenuItem value="daily">Daily</MenuItem>
-          <MenuItem value="all">All Time</MenuItem>
-        </Select>
-      </FormControl>
+      <Stack direction="row" spacing={2} mb={2}>
+        <FormControl size="small" sx={{ minWidth: 120 }}>
+          <InputLabel>Range</InputLabel>
+          <Select value={range} label="Range" onChange={onRangeChange}>
+            <MenuItem value="daily">Daily</MenuItem>
+            <MenuItem value="weekly">Weekly</MenuItem>
+            <MenuItem value="all">All Time</MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>Mode</InputLabel>
+          <Select value={mode} label="Mode" onChange={onModeChange}>
+            <MenuItem value="3m">3 Minutes</MenuItem>
+            <MenuItem value="5m">5 Minutes</MenuItem>
+            <MenuItem value="survival">Survival</MenuItem>
+          </Select>
+        </FormControl>
+      </Stack>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>

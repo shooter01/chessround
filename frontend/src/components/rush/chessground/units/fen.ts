@@ -17,13 +17,17 @@ window.site = window.site || {};
 // window.lichess is initialized in ui/api/src/api.ts
 site.sound = sound;
 
+// at the top, right after you import site.sound:
 const volFactor = parseFloat(localStorage.getItem('app-volume-factor') || '1');
+// read the active sound set
+const soundTheme = localStorage.getItem('app-sound-theme') || 'default';
+// choose folder
+const soundBase = soundTheme === 'quake3' ? '/sound/quake' : '/sound';
 
-site.sound.load(`error`, site.sound.url(`/sound/Error3.mp3`));
-site.sound.load(`correct`, site.sound.url(`/sound/correct2.mp3`));
-site.sound.load(`move`, site.sound.url(`/sound/Move.mp3`));
-site.sound.load(`capture`, site.sound.url(`/sound/Capture.mp3`));
-
+site.sound.load(`error`, site.sound.url(`${soundBase}/Error.mp3`));
+site.sound.load(`correct`, site.sound.url(`${soundBase}/Сorrect.mp3`));
+site.sound.load(`move`, site.sound.url(`${soundBase}/Move.mp3`));
+site.sound.load(`capture`, site.sound.url(`${soundBase}/Capture.mp3`));
 let startX = 0;
 let initialZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom')!) || 400;
 
@@ -118,9 +122,6 @@ export function toColor(chess: Chess): Color {
 }
 
 const userMove = (orig: Key, dest: Key, capture: Key): void => {
-  console.log(`User move: ${orig} to ${dest}`, capture);
-  console.log(currentPuzzle);
-
   const isPromoting = window.promotion.start(orig, dest, {
     submit: playUserMove,
   });
@@ -128,11 +129,8 @@ const userMove = (orig: Key, dest: Key, capture: Key): void => {
 };
 
 window.playComputerMove = (orig: Key, dest: Key): void => {
-  console.log(`Computer move: ${orig} to ${dest}`);
-
   setTimeout(() => {
     const move = window.chess.move(currentPuzzle.expectedMove());
-    console.log(move);
     window.currentPuzzlesMoves.push(move.lan);
 
     window.cg.set({

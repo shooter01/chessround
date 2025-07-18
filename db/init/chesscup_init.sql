@@ -60,3 +60,13 @@ CREATE TABLE chesscup.user_points_history (
 );
 -- индекс по lichess_id, если нужно фильтровать по пользователю
 CREATE INDEX ON chesscup.user_points_history(lichess_id);
+
+
+ALTER TABLE chesscup.user_points_history
+  ADD COLUMN mode text NOT NULL DEFAULT '3m';
+ALTER TABLE chesscup.user_points_history
+  ADD CONSTRAINT user_points_history_mode_check
+  CHECK (mode IN ('3m','5m','survival'));
+
+ALTER TABLE chesscup.chesscup_sessions
+  ADD COLUMN mode TEXT NOT NULL DEFAULT '3m';

@@ -19,13 +19,19 @@ const PUZZLES_API =
  * [GET] /puzzles/get?level=5&theme=fork&limit=2
  */
 router.get('/get', async (req, res) => {
-  const { level, theme, limit } = req.query;
+  // 0) Разбор mode из query
+  let { mode = '3m' } = req.query;
 
-  // if (!level || !limit) {
-  //   return res.status(400).json({
-  //     error: 'Missing required query parameters: level, limit.',
-  //   });
-  // }
+  // если пришло '3' или '5' — дособираем 'm'
+  if (mode === '3' || mode === '5') {
+    mode = mode + 'm';
+  }
+
+  // теперь валидируем
+  const allowed = ['3m', '5m', 'survival'];
+  if (!allowed.includes(mode)) {
+    return res.status(400).json({ error: 'Invalid mode parameter' });
+  }
 
   // 1) Извлекаем токен
   const auth = req.headers.authorization;
@@ -37,7 +43,7 @@ router.get('/get', async (req, res) => {
   const token = auth.slice(7);
 
   try {
-    // 2) Получаем lichess_id из users
+    // 2) Получаем lichess_id
     const userQ = await db.query(
       `SELECT lichess_id
          FROM chesscup.chesscup_users
@@ -49,30 +55,36 @@ router.get('/get', async (req, res) => {
     }
     const lichessId = userQ.rows[0].lichess_id;
 
-    // 3) Запрашиваем список паззлов
+    // 3) Запрашиваем список паззлов из внешнего сервиса
     const response = await axios.get(`${PUZZLES_API}/puzzles`, {
-      // params: { level, theme, limit },
       headers: { Accept: 'application/json' },
     });
-    const puzzles = response.data;
+    const puzzles = response.data; // предполагаем, что это массив или объект с массивом
 
-    // 4) UPSERT в chesscup_sessions по lichess_id
-    const upsertRes = await db.query(
-      `INSERT INTO chesscup.chesscup_sessions (lichess_id, puzzles)
-       VALUES ($1, $2)
-       ON CONFLICT (lichess_id)
-       DO UPDATE
-         SET puzzles     = EXCLUDED.puzzles,
-             updated_at  = now(),
-             session_id  = gen_random_uuid(),
-             current_session_points = 0,
-             current_session_puzzle_index = 0
-       RETURNING session_id`,
-      [lichessId, JSON.stringify(puzzles.puzzles)]
-    );
+    // 4) UPSERT в chesscup_sessions, теперь с полем mode
+    const upsertSql = `
+      INSERT INTO chesscup.chesscup_sessions
+        (lichess_id, puzzles, mode)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (lichess_id)
+      DO UPDATE SET
+        puzzles                      = EXCLUDED.puzzles,
+        mode                         = EXCLUDED.mode,
+        updated_at                   = now(),
+        session_id                   = gen_random_uuid(),
+        current_session_points       = 0,
+        current_session_puzzle_index = 0
+      RETURNING session_id
+    `;
+
+    const upsertRes = await db.query(upsertSql, [
+      lichessId,
+      JSON.stringify(puzzles),
+      mode,
+    ]);
     const sessionId = upsertRes.rows[0].session_id;
 
-    // 6) Возвращаем паззлы и session_id
+    // 5) Отдаём паззлы и новый session_id
     return res.json({ puzzles, session_id: sessionId });
   } catch (err) {
     console.error('Error in /puzzles/get:', err);
@@ -91,15 +103,11 @@ router.get('/get', async (req, res) => {
  */
 router.post('/solve', async (req, res) => {
   const { fen, moves, session_id: sessionIdFromBody } = req.body;
-
-  // 1) Валидация входных данных
   if (!fen || typeof moves !== 'string' || !sessionIdFromBody) {
     return res
       .status(400)
       .json({ error: 'Missing fen, moves or session_id in body' });
   }
-
-  // 2) Проверяем заголовок авторизации
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) {
     return res
@@ -109,30 +117,33 @@ router.post('/solve', async (req, res) => {
   const token = auth.slice(7);
 
   try {
-    // 3) Определяем lichess_id по токену
+    // 3) Находим lichess_id
     const userRes = await db.query(
       `SELECT lichess_id
          FROM chesscup.chesscup_users
         WHERE access_token = $1`,
       [token]
     );
-    if (userRes.rowCount === 0) {
+    if (!userRes.rowCount) {
       return res.status(401).json({ error: 'Invalid token' });
     }
     const lichessId = userRes.rows[0].lichess_id;
 
-    // 4) Достаём сессию по lichess_id и session_id
+    // 4) Достаём сессию вместе с mode
     const sessRes = await db.query(
       `SELECT session_id,
               puzzles,
               current_session_puzzle_index,
-              current_session_points
+              current_session_points,
+              mode
          FROM chesscup.chesscup_sessions
         WHERE lichess_id = $1
           AND session_id = $2`,
       [lichessId, sessionIdFromBody]
     );
-    if (sessRes.rowCount === 0) {
+    console.log(sessRes.rows[0].puzzles);
+
+    if (!sessRes.rowCount) {
       return res
         .status(400)
         .json({ error: 'Invalid or expired session_id' });
@@ -142,12 +153,13 @@ router.post('/solve', async (req, res) => {
       puzzles: puzzlesText,
       current_session_puzzle_index: currentIndex,
       current_session_points: currentPoints,
+      mode,
     } = sessRes.rows[0];
 
-    // 5) Парсим puzzles и находим индекс текущего паззла
+    // 5) Парсим и находим индекс
     let puzzles;
     try {
-      puzzles = JSON.parse(puzzlesText);
+      puzzles = JSON.parse(puzzlesText).puzzles;
     } catch {
       return res
         .status(500)
@@ -155,15 +167,14 @@ router.post('/solve', async (req, res) => {
     }
     const idx = puzzles.findIndex((p) => p.fen === fen);
     if (idx === -1) {
-      return res.status(400).json({
-        error: 'Puzzle with given fen not found in session',
-      });
+      return res
+        .status(400)
+        .json({ error: 'Puzzle not found in session' });
     }
 
-    // 6) Вычисляем новый индекс и очки
+    // 6) Считаем новый индекс и очки
     const newIndex = idx === currentIndex ? currentIndex + 1 : idx;
-    const correctMoves = puzzles[idx].moves;
-    const gainedPoint = moves === correctMoves ? 1 : 0;
+    const gainedPoint = moves === puzzles[idx].moves ? 1 : 0;
     const newPoints = currentPoints + gainedPoint;
 
     // 7) Обновляем сессию
@@ -176,19 +187,20 @@ router.post('/solve', async (req, res) => {
       [newIndex, newPoints, sessionId]
     );
 
-    // 8) Логируем историю очков: вставляем или обновляем по session_id
+    // 8) Логируем историю с mode
     await db.query(
       `INSERT INTO chesscup.user_points_history
-         (session_id, lichess_id, points)
-       VALUES ($1, $2, $3)
+         (session_id, lichess_id, points, mode)
+       VALUES ($1, $2, $3, $4)
        ON CONFLICT (session_id)
-       DO UPDATE
-         SET points      = EXCLUDED.points,
-             recorded_at = now()`,
-      [sessionId, lichessId, newPoints]
+       DO UPDATE SET
+         points      = EXCLUDED.points,
+         mode        = EXCLUDED.mode,
+         recorded_at = now()`,
+      [sessionId, lichessId, newPoints, mode]
     );
 
-    // 9) Возвращаем обновлённые данные
+    // 9) Отдаём результат
     return res.json({
       session_id: sessionId,
       current_index: newIndex,
@@ -201,11 +213,21 @@ router.post('/solve', async (req, res) => {
 });
 
 /**
- * [GET] /puzzles/record
- * Возвращает лучший результат пользователя за сегодня и за всё время.
+ * [GET] /puzzles/record?mode=3m|5m|survival
+ * Возвращает лучший результат пользователя за сегодня и за всё время в указанном режиме.
  * Заголовок: Authorization: Bearer <token>
  */
 router.get('/record', async (req, res) => {
+  // 0) Разбор и валидация mode
+  let { mode } = req.query;
+  if (mode === '3' || mode === '5') {
+    mode = mode + 'm';
+  }
+  const allowed = ['3m', '5m', 'survival'];
+  if (!allowed.includes(mode)) {
+    return res.status(400).json({ error: 'Invalid mode parameter' });
+  }
+
   // 1) Проверяем заголовок авторизации
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) {
@@ -228,22 +250,24 @@ router.get('/record', async (req, res) => {
     }
     const lichessId = userQ.rows[0].lichess_id;
 
-    // 3) Лучший результат за всё время
+    // 3) Лучший результат за всё время в этом режиме
     const allTimeQ = await db.query(
       `SELECT COALESCE(MAX(points), 0) AS best
          FROM chesscup.user_points_history
-        WHERE lichess_id = $1`,
-      [lichessId]
+        WHERE lichess_id = $1
+          AND mode      = $2`,
+      [lichessId, mode]
     );
     const bestAllTime = allTimeQ.rows[0].best;
 
-    // 4) Лучший результат за сегодня
+    // 4) Лучший результат за сегодня в этом режиме
     const todayQ = await db.query(
       `SELECT COALESCE(MAX(points), 0) AS best
          FROM chesscup.user_points_history
-        WHERE lichess_id = $1
+        WHERE lichess_id  = $1
+          AND mode        = $2
           AND recorded_at >= date_trunc('day', now())`,
-      [lichessId]
+      [lichessId, mode]
     );
     const bestToday = todayQ.rows[0].best;
 

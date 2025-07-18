@@ -56,6 +56,9 @@ export default function PuzzleRush() {
   const [currentPoints, setCurrentPoints] = useState(0);
   const [isStarted, setIsStarted] = useState(false);
   const [theme, setTheme] = useState('');
+  const raw = localStorage.getItem('rushModeKey') || '5';
+  const modeStorage = raw === 'survival' ? 'survival' : `${raw}m`;
+  const [mode, setMode] = useState(modeStorage || '5m'); // <— добавили
   const [isFinished, setIsFinished] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStreak, setCurrentStreak] = useState(0);
@@ -78,11 +81,15 @@ export default function PuzzleRush() {
       setTimeout(() => countdownRef.current?.start(), 100);
 
       setLoading(true);
+
+      // достаём режим из localStorage (или дефолт)
+      const raw = localStorage.getItem('rushModeKey') || '5';
+      const mode = raw === 'survival' ? 'survival' : `${raw}m`;
       const { data } = await axios.get<{
         puzzles: any[];
         session_id: string;
       }>('http://localhost:5000/puzzles/get', {
-        // params: { level, theme, limit },
+        params: { mode },
         headers: {
           Accept: 'application/json',
           Authorization: `Bearer ${token}`,
@@ -222,7 +229,7 @@ export default function PuzzleRush() {
       }, 300);
     }
   }, [correctPuzzles, setShowResults, setIsStarted]);
-  const { bestToday, bestAllTime } = useRecords(showResults, token);
+  const { bestToday, bestAllTime } = useRecords(mode, token);
 
   return (
     <Container
@@ -305,6 +312,7 @@ export default function PuzzleRush() {
                 correctPuzzles={correctPuzzles}
                 countdownRef={countdownRef}
                 setRushModeCounter={setRushModeCounter}
+                setMode={setMode}
                 setShowResults={setShowResults}
                 setIsStarted={setIsStarted}
                 showCountdown={showCountdown}

@@ -60,8 +60,6 @@ export default function RushDefaultState({
   const handleBoardTab = (_: any, v: string) => setBoardTab(v as any);
   const handleRange = (e: SelectChangeEvent) => setRange(e.target.value as any);
 
-  const times = createTimes(t);
-
   return (
     <Box
       sx={{

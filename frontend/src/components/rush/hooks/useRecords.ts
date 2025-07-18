@@ -2,10 +2,10 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-export function useRecords(showResults: boolean, token: string) {
+export function useRecords(mode: string, token: string) {
   const [bestToday, setBestToday] = useState(0);
   const [bestAllTime, setBestAllTime] = useState(0);
-  console.log('showResults:', showResults);
+  console.log('mode:', mode);
 
   useEffect(() => {
     // if (!showResults) return;
@@ -13,6 +13,7 @@ export function useRecords(showResults: boolean, token: string) {
     const fetchRecords = async () => {
       try {
         const resp = await axios.get('http://localhost:5000/puzzles/record', {
+          params: { mode },
           headers: {
             Accept: 'application/json',
             Authorization: `Bearer ${token}`,
@@ -27,7 +28,7 @@ export function useRecords(showResults: boolean, token: string) {
     };
 
     fetchRecords();
-  }, [showResults, token]);
+  }, [mode, token]);
 
   return { bestToday, bestAllTime };
 }

@@ -29,6 +29,8 @@ import Logo from './components/Logo/Logo';
 import LanguageSelector from './components/LanguageSelector/LanguageSelector';
 import VolumeControl from './components/VolumeControl/VolumeControl';
 import PieceSelector from './components/PieceSelector/PieceSelector';
+import SoundSelector from './components/SoundSelector/SoundSelector';
+
 import BoardSelector from './components/BoardSelector/BoardSelector';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -83,6 +85,7 @@ export default function TransparentHeaderWithDrawer() {
           {theme.palette.mode === 'light' ? t('toggle.dark') : t('toggle.light')}
         </Typography>
         <LanguageSelector />
+        <SoundSelector />
       </Box>
     </Box>
   );
@@ -171,6 +174,8 @@ export default function TransparentHeaderWithDrawer() {
             </IconButton>
             <LanguageSelector />
             <VolumeControl />
+            {/* <SoundSelector /> */}
+
             <PieceSelector />
             <BoardSelector />
           </Toolbar>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Stack, Typography, useTheme, Button, CircularProgress } from '@mui/material';
 import { Icon } from '@iconify/react';
 import { useTranslation } from 'react-i18next';
@@ -8,21 +8,40 @@ interface PlayTabProps {
   loading: boolean;
   onStart: () => void;
   setRushModeCounter: (time: number) => void;
+  setMode: (time: string) => void;
 }
 
-export default function PlayTab({ loading, onStart, setRushModeCounter }: PlayTabProps) {
+export default function PlayTab({ loading, onStart, setRushModeCounter, setMode }: PlayTabProps) {
   const { t } = useTranslation();
-  const [activeKey, setActiveKey] = useState<string | null>('5');
-  const times = createTimes(t);
   const theme = useTheme();
+
+  // 1) загрузка сохранённого выбора или '5' по умолчанию
+  const savedKey = localStorage.getItem('rushModeKey') || '5';
+  const [activeKey, setActiveKey] = useState<string>(savedKey);
+
+  const times = createTimes(t);
+
+  // 2) при монтировании устанавливаем таймер по активному ключу
+  useEffect(() => {
+    const entry = times.find((item) => item.key === activeKey);
+    if (entry) {
+      setRushModeCounter(entry.time);
+    }
+  }, [activeKey, setRushModeCounter, times]);
+
+  // 3) обработчик выбора режима
+  const handleSelect = (key: string, time: number) => {
+    setActiveKey(key);
+    localStorage.setItem('rushModeKey', key);
+    setRushModeCounter(time);
+    setMode(key === 'survival' ? 'survival' : (`${key}m` as '3m' | '5m'));
+  };
 
   return (
     <>
       <Stack direction="row" spacing={2} sx={{ mb: 4, mt: 4 }}>
         {times.map(({ key, icon, time, label }) => {
           const active = key === activeKey;
-
-          // выбираем подсветку в зависимости от темы
           const glow = active
             ? theme.palette.mode === 'light'
               ? 'drop-shadow(0 0 10px rgba(0,0,0,0.5))'
@@ -32,10 +51,7 @@ export default function PlayTab({ loading, onStart, setRushModeCounter }: PlayTa
           return (
             <Box
               key={key}
-              onClick={() => {
-                setActiveKey(key);
-                setRushModeCounter(time);
-              }}
+              onClick={() => handleSelect(key, time)}
               sx={{
                 flex: 1,
                 textAlign: 'center',
@@ -45,7 +61,6 @@ export default function PlayTab({ loading, onStart, setRushModeCounter }: PlayTa
                 '&:hover': { transform: 'scale(1.1)' },
               }}
             >
-              {/* Оборачиваем Icon в Box, чтобы можно было задать sx */}
               <Box
                 sx={{
                   transition: 'filter .3s',
@@ -56,7 +71,14 @@ export default function PlayTab({ loading, onStart, setRushModeCounter }: PlayTa
                 <Icon icon={icon} width={80} height={80} />
               </Box>
 
-              <Typography sx={{ mt: 1, fontSize: 16, fontWeight: 700, color: 'text.primary' }}>
+              <Typography
+                sx={{
+                  mt: 1,
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: 'text.primary',
+                }}
+              >
                 {label}
               </Typography>
             </Box>
@@ -74,7 +96,7 @@ export default function PlayTab({ loading, onStart, setRushModeCounter }: PlayTa
           sx={{
             fontFamily: 'Poppins, sans-serif',
             fontWeight: 700,
-            textTransform: 'none', // убирает автоматические капслоки
+            textTransform: 'none',
             ...(theme.palette.mode === 'dark'
               ? {
                   backgroundColor: '#FFD600',

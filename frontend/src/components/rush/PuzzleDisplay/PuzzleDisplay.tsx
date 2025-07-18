@@ -46,6 +46,15 @@ export default function PuzzleDisplay() {
         window.chess.move(window.currentPuzzle.expectedMove());
         setFen(window.chess.fen());
         window.setPosition();
+        // window.cg.set({
+        //   orientation: currentPuzzle.pov,
+
+        //   movable: {
+        //     showDests: true,
+        //     free: false,
+        //     color: window.currentPuzzle.pov,
+        //   },
+        // });
       })
       .catch((err) => {
         console.error('Failed to load puzzle:', err);

@@ -21,13 +21,12 @@ const PUZZLES_API =
  * сортирует по этим наивысшим и отдает топ‑50.
  */
 router.get('/', async (req, res) => {
-  const { range = 'all' } = req.query;
-  let where = '';
-
+  const { range = 'all', mode = '3m' } = req.query;
+  let dateCond = '';
   if (range === 'daily') {
-    where = `WHERE recorded_at >= date_trunc('day', now())`;
+    dateCond = `AND recorded_at >= date_trunc('day', now())`;
   } else if (range === 'weekly') {
-    where = `WHERE recorded_at >= date_trunc('week', now())`;
+    dateCond = `AND recorded_at >= date_trunc('week', now())`;
   }
 
   const sql = `
@@ -35,14 +34,14 @@ router.get('/', async (req, res) => {
       lichess_id,
       MAX(points) AS best_score
     FROM chesscup.user_points_history
-    ${where}
+    WHERE mode = $1
+      ${dateCond}
     GROUP BY lichess_id
     ORDER BY best_score DESC
     LIMIT 50
   `;
-
   try {
-    const { rows } = await db.query(sql);
+    const { rows } = await db.query(sql, [mode]);
     const players = rows.map((r, i) => ({
       rank: i + 1,
       lichessId: r.lichess_id,
