@@ -33,6 +33,7 @@ services:
       # Переменные для Lichess OAuth
       - LICHESS_CLIENT_ID=lip_vJMHMJyxiPN4Zc1SkL1Y
       - LICHESS_REDIRECT_URI=http://localhost:5000/lichess-auth/callback
+      - LICHESS_REDIRECT_BASE_URL=http://localhost:5000
       - STATE_SECRET=your-very-strong-secret
       # URL фронтенда для редиректа после успешного логина (опционально)
       - FRONTEND_URL=http://localhost:3000

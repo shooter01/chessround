@@ -10,13 +10,15 @@ const router = express.Router();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 // Базовый URL вашего бэка, без слеша на конце
-const BASE_URL = process.env.BACKEND_URL;
+const BASE_URL = process.env.LICHESS_REDIRECT_BASE_URL;
 
 // Единый путь коллбэка
 const CALLBACK_PATH = '/lichess_auth/callback';
 
 // Полный URI должен совпадать в /auth и при обмене
-const REDIRECT_URI = BASE_URL + CALLBACK_PATH;
+const REDIRECT_URI = BASE_URL
+  ? BASE_URL + CALLBACK_PATH
+  : CALLBACK_PATH;
 
 const CLIENT_ID =
   process.env.LICHESS_CLIENT_ID || lichessCredentials.clientId;
