@@ -6,11 +6,15 @@
 FROM node:20 AS builder
 WORKDIR /app
 
+# 👉 Добавляем build‑arg и делаем его доступным для Vite
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
+
 # Устанавливаем зависимости
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Копируем исходники и собираем prod-бандл
+# Копируем исходники и собираем prod‑бандл
 COPY . .
 RUN npm run build
 

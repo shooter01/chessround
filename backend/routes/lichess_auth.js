@@ -10,7 +10,7 @@ const router = express.Router();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 // Базовый URL вашего бэка, без слеша на конце
-const BASE_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+const BASE_URL = process.env.BACKEND_URL;
 
 // Единый путь коллбэка
 const CALLBACK_PATH = '/lichess_auth/callback';
