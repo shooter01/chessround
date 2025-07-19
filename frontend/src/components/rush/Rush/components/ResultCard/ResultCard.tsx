@@ -94,7 +94,7 @@ const ResultCardModern: React.FC<ResultCardModernProps> = ({
         <div className="rcard-modern__stats">
           <div className="rcard-modern__stat">
             <FontAwesomeIcon icon={faCalendarAlt} className="rcard-modern__stat-icon" />
-            <span className="rcard-modern__stat-value">{today}</span>
+            <span className="rcard-modern__stat-value">{result >= today ? result : today}</span>
             <span className="rcard-modern__stat-label">TODAY</span>
           </div>
           <div className="rcard-modern__stat">

@@ -2,15 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { Container, Box, CircularProgress, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { API_BASE } from '@api/api';
 
-export default function PuzzleDisplay() {
+export default function LoginButtonPage() {
+  const { t } = useTranslation();
   const [authUri, setAuthUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fetch the authorization URI on component mount
     fetch(`${API_BASE}/lichess_auth/auth`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -21,10 +22,10 @@ export default function PuzzleDisplay() {
       })
       .catch((err) => {
         console.error('Failed to fetch auth URI:', err);
-        setError('Не удалось загрузить ссылку для входа.');
+        setError(t('puzzle.error_load_auth'));
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const handleLogin = () => {
     if (authUri) window.location.href = authUri;
@@ -69,7 +70,7 @@ export default function PuzzleDisplay() {
               />
             </Box>
             <Typography variant="h6" sx={{ mt: 1, color: 'common.white' }}>
-              Войти через Lichess
+              {t('puzzle.login_button')}
             </Typography>
           </Box>
         )}

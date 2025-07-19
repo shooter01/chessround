@@ -15,6 +15,10 @@ export const resources = {
         tools: 'Tools',
         donate: 'Donate',
       },
+      puzzle: {
+        login_button: 'Log in via Lichess',
+        error_load_auth: 'Failed to load login link.',
+      },
       toggle: {
         dark: 'Dark Mode',
         light: 'Light Mode',
@@ -67,6 +71,10 @@ export const resources = {
         community: 'Сообщество',
         tools: 'Инструменты',
         donate: 'Пожертвовать',
+      },
+      puzzle: {
+        login_button: 'Войти через Lichess',
+        error_load_auth: 'Не удалось загрузить ссылку для входа.',
       },
       toggle: {
         dark: 'Тёмная тема',

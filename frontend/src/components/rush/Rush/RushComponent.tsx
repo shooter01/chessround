@@ -112,44 +112,52 @@ export default function PuzzleRush() {
     }
   };
   window.setCorrect = async (isCorrect: boolean) => {
+    // 1) Локальная анимация и обновление серии
     const oldPov = pov;
     setPov(isCorrect ? 'correct' : 'incorrect');
     setTimeout(() => setPov(oldPov), 1700);
 
-    // обновляем серию
     setCurrentStreak((prev) => {
       const next = isCorrect ? prev + 1 : 0;
-      // обновляем рекордную, если нужно
-      if (next > longestStreak) {
-        setLongestStreak(next);
-      }
+      if (next > longestStreak) setLongestStreak(next);
       return next;
     });
 
-    try {
-      if (!sessionId) throw new Error('Session ID missing');
-      const puzzle = puzzles[window.puzzlesCounter];
+    // 2) Локальный расчёт очков
+    // Например: +1 за правильный, ничего за неправильный
+    setCurrentPoints((prevPoints) => {
+      const delta = isCorrect ? 1 : 0;
+      return prevPoints + delta;
+    });
 
-      const result = await axios.post(
-        `${API_BASE}/puzzles/solve`,
-        {
-          session_id: sessionId, // <— отправляем сюда
-          fen: puzzle.fen,
-          moves: window.currentPuzzlesMoves.join(' '),
-          result: isCorrect ? 'win' : 'lose',
-        },
-        {
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${token}`,
+    // 3) Параллельно — попытка отправить на сервер
+    if (sessionId) {
+      try {
+        const puzzle = puzzles[window.puzzlesCounter];
+        const result = await axios.post(
+          `${API_BASE}/puzzles/solve`,
+          {
+            session_id: sessionId,
+            fen: puzzle.fen,
+            moves: window.currentPuzzlesMoves.join(' '),
+            result: isCorrect ? 'win' : 'lose',
           },
-          withCredentials: true,
-        },
-      );
-
-      setCurrentPoints(result.data.current_points);
-    } catch (e) {
-      console.error('Не удалось отправить результат паззла:', e);
+          {
+            headers: {
+              Accept: 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            withCredentials: true,
+          },
+        );
+        // если бэкенд вернул актуальные очки (можно синхронизировать)
+        if (result.data.current_points != null) {
+          setCurrentPoints(result.data.current_points);
+        }
+      } catch (e) {
+        console.error('Не удалось отправить результат паззла:', e);
+        // ничего не делаем — UI уже обновлён
+      }
     }
   };
 

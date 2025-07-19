@@ -19,81 +19,84 @@ const PUZZLES_API =
  * [GET] /puzzles/get?level=5&theme=fork&limit=2
  */
 router.get('/get', async (req, res) => {
-  // 0) Разбор mode из query
+  // --- 0) Разбор и валидация mode (как было) ---
   let { mode = '3m' } = req.query;
-
-  // если пришло '3' или '5' — дособираем 'm'
-  if (mode === '3' || mode === '5') {
-    mode = mode + 'm';
-  }
-
-  // теперь валидируем
+  if (mode === '3' || mode === '5') mode += 'm';
   const allowed = ['3m', '5m', 'survival'];
   if (!allowed.includes(mode)) {
     return res.status(400).json({ error: 'Invalid mode parameter' });
   }
 
-  // 1) Извлекаем токен
-  const auth = req.headers.authorization;
-  if (!auth?.startsWith('Bearer ')) {
-    return res
-      .status(401)
-      .json({ error: 'Missing or invalid Authorization header' });
-  }
-  const token = auth.slice(7);
-
-  try {
-    // 2) Получаем lichess_id
-    const userQ = await db.query(
-      `SELECT lichess_id
-         FROM chesscup.chesscup_users
-        WHERE access_token = $1`,
-      [token]
-    );
-    if (userQ.rowCount === 0) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    const lichessId = userQ.rows[0].lichess_id;
-
-    // 3) Запрашиваем список паззлов из внешнего сервиса
+  // Внутренняя функция получения паззлов
+  async function fetchPuzzles() {
     const response = await axios.get(`${PUZZLES_API}/puzzles`, {
       headers: { Accept: 'application/json' },
     });
-    const puzzles = response.data; // предполагаем, что это массив или объект с массивом
+    return response.data;
+  }
 
-    // 4) UPSERT в chesscup_sessions, теперь с полем mode
-    const upsertSql = `
-      INSERT INTO chesscup.chesscup_sessions
-        (lichess_id, puzzles, mode)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (lichess_id)
-      DO UPDATE SET
-        puzzles                      = EXCLUDED.puzzles,
-        mode                         = EXCLUDED.mode,
-        updated_at                   = now(),
-        session_id                   = gen_random_uuid(),
-        current_session_points       = 0,
-        current_session_puzzle_index = 0
-      RETURNING session_id
-    `;
+  // 1) Проверяем авторизацию
+  const auth = req.headers.authorization;
+  let sessionId = null;
 
-    const upsertRes = await db.query(upsertSql, [
-      lichessId,
-      JSON.stringify(puzzles),
-      mode,
-    ]);
-    const sessionId = upsertRes.rows[0].session_id;
+  if (auth?.startsWith('Bearer ')) {
+    const token = auth.slice(7);
+    try {
+      // 2) Попытка найти пользователя
+      const userQ = await db.query(
+        `SELECT lichess_id
+           FROM chesscup.chesscup_users
+          WHERE access_token = $1`,
+        [token]
+      );
+      if (userQ.rowCount > 0) {
+        const lichessId = userQ.rows[0].lichess_id;
 
-    // 5) Отдаём паззлы и новый session_id
-    return res.json({ puzzles, session_id: sessionId });
-  } catch (err) {
-    console.error('Error in /puzzles/get:', err);
-    if (err.isAxiosError) {
-      return res.status(502).json({
-        error: 'Failed to fetch puzzles from external service.',
-      });
+        // 3) Получаем паззлы
+        const puzzles = await fetchPuzzles();
+
+        // 4) UPSERT с полем mode
+        const upsertSql = `
+          INSERT INTO chesscup.chesscup_sessions
+            (lichess_id, puzzles, mode)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (lichess_id)
+          DO UPDATE SET
+            puzzles                      = EXCLUDED.puzzles,
+            mode                         = EXCLUDED.mode,
+            updated_at                   = now(),
+            session_id                   = gen_random_uuid(),
+            current_session_points       = 0,
+            current_session_puzzle_index = 0
+          RETURNING session_id
+        `;
+        const upsertRes = await db.query(upsertSql, [
+          lichessId,
+          JSON.stringify(puzzles),
+          mode,
+        ]);
+        sessionId = upsertRes.rows[0].session_id;
+
+        // 5) Отдаём и паззлы, и сессию
+        return res.json({ puzzles, session_id: sessionId });
+      }
+      // если токен некорректен — будем как неавторизованный
+    } catch (err) {
+      console.error('Error in /puzzles/get (auth):', err);
+      // если это Axios‑ошибка, можно вернуть 502, но тут продолжим без авторизации
     }
-    return res.status(500).json({ error: 'Internal server error.' });
+  }
+
+  // --- Не авторизованный поток ---
+  try {
+    const puzzles = await fetchPuzzles();
+    // Отдаём паззлы без session_id
+    return res.json({ puzzles, session_id: null });
+  } catch (err) {
+    console.error('Error in /puzzles/get (public):', err);
+    return res.status(502).json({
+      error: 'Failed to fetch puzzles from external service.',
+    });
   }
 });
 
