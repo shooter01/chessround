@@ -144,7 +144,6 @@ router.post('/solve', async (req, res) => {
           AND session_id = $2`,
       [lichessId, sessionIdFromBody]
     );
-    console.log(sessRes.rows[0].puzzles);
 
     if (!sessRes.rowCount) {
       return res
