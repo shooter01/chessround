@@ -52,6 +52,10 @@ export const resources = {
           fiveMin: '5 min',
           survival: 'Survival',
         },
+        selectTheme: 'Theme',
+        selectRating: 'Rating',
+        anyTheme: 'Any theme',
+        anyRating: 'Any rating',
       },
       header: {
         welcome: 'Hello, {{username}}!', // added welcome message
@@ -135,6 +139,10 @@ export const resources = {
           fiveMin: '5 мин',
           survival: 'Выживание',
         },
+        selectTheme: 'Тема',
+        selectRating: 'Рейтинг',
+        anyTheme: 'Любая тема',
+        anyRating: 'Любой рейтинг',
       },
       header: {
         welcome: 'Привет, {{username}}!', // added welcome message
@@ -165,6 +173,7 @@ export const resources = {
       common: {
         ok: 'ОК',
       },
+
       // add other keys as needed
     },
   },

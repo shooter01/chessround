@@ -286,6 +286,18 @@ router.get('/record', async (req, res) => {
   }
 });
 
+router.get('/themes', async (req, res) => {
+  try {
+    const response = await axios.get(`${PUZZLES_API}/themes`, {
+      headers: { Accept: 'application/json' },
+    });
+    return res.json(response.data);
+  } catch (err) {
+    console.error('Error in GET /themes:', err);
+    return res.status(502).json({ error: 'Failed to fetch themes' });
+  }
+});
+
 /**
  * [GET] /puzzles/:puzzleid
  * Path‑параметр: puzzleid
