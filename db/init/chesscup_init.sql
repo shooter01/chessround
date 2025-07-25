@@ -71,3 +71,11 @@ ALTER TABLE chesscup.user_points_history
 
 ALTER TABLE chesscup.chesscup_sessions
   ADD COLUMN mode TEXT NOT NULL DEFAULT '3m';
+
+  ALTER TABLE chesscup.chesscup_sessions
+ADD COLUMN theme TEXT DEFAULT NULL,
+ADD COLUMN rating INT4 DEFAULT NULL;
+
+ALTER TABLE chesscup.user_points_history
+ADD COLUMN theme TEXT DEFAULT NULL,
+ADD COLUMN rating INT4 DEFAULT NULL;

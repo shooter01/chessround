@@ -19,51 +19,63 @@ const PUZZLES_API =
  * [GET] /puzzles/get?level=5&theme=fork&limit=2
  */
 router.get('/get', async (req, res) => {
-  // --- 0) Разбор и валидация mode (как было) ---
-  let { mode = '3m' } = req.query;
+  let { mode = '3m', theme = '', rating = '0' } = req.query;
+
   if (mode === '3' || mode === '5') mode += 'm';
-  const allowed = ['3m', '5m', 'survival'];
-  if (!allowed.includes(mode)) {
+  const allowedModes = ['3m', '5m', 'survival'];
+  if (!allowedModes.includes(mode)) {
     return res.status(400).json({ error: 'Invalid mode parameter' });
   }
 
-  // Внутренняя функция получения паззлов
+  // 🔍 Validate and parse rating
+  const allowedRatings = [0, 1500, 2000, 2500];
+  const parsedRating = parseInt(rating, 10);
+  const finalRating = allowedRatings.includes(parsedRating)
+    ? parsedRating
+    : 0;
+
+  // 🔍 Validate theme — leave as string, max 50
+  const finalTheme =
+    typeof theme === 'string' ? theme.slice(0, 50) : '';
+
   async function fetchPuzzles() {
     const response = await axios.get(`${PUZZLES_API}/puzzles`, {
       headers: { Accept: 'application/json' },
+      // 👇 если внешний сервис принимает эти параметры — добавим
+      params: {
+        ...(finalTheme && { theme: finalTheme }),
+        ...(finalRating > 0 && { rating: finalRating }),
+      },
     });
     return response.data;
   }
 
-  // 1) Проверяем авторизацию
   const auth = req.headers.authorization;
   let sessionId = null;
 
   if (auth?.startsWith('Bearer ')) {
     const token = auth.slice(7);
     try {
-      // 2) Попытка найти пользователя
       const userQ = await db.query(
         `SELECT lichess_id
-           FROM chesscup.chesscup_users
-          WHERE access_token = $1`,
+         FROM chesscup.chesscup_users
+         WHERE access_token = $1`,
         [token]
       );
       if (userQ.rowCount > 0) {
         const lichessId = userQ.rows[0].lichess_id;
-
-        // 3) Получаем паззлы
         const puzzles = await fetchPuzzles();
 
-        // 4) UPSERT с полем mode
         const upsertSql = `
           INSERT INTO chesscup.chesscup_sessions
-            (lichess_id, puzzles, mode)
-          VALUES ($1, $2, $3)
+            (lichess_id, puzzles, mode, theme, rating)
+          VALUES ($1, $2, $3, $4, $5)
           ON CONFLICT (lichess_id)
           DO UPDATE SET
             puzzles                      = EXCLUDED.puzzles,
             mode                         = EXCLUDED.mode,
+            theme                        = EXCLUDED.theme,
+            rating                       = EXCLUDED.rating,
             updated_at                   = now(),
             session_id                   = gen_random_uuid(),
             current_session_points       = 0,
@@ -74,29 +86,17 @@ router.get('/get', async (req, res) => {
           lichessId,
           JSON.stringify(puzzles),
           mode,
+          finalTheme || null,
+          finalRating || null,
         ]);
         sessionId = upsertRes.rows[0].session_id;
 
-        // 5) Отдаём и паззлы, и сессию
         return res.json({ puzzles, session_id: sessionId });
       }
-      // если токен некорректен — будем как неавторизованный
     } catch (err) {
       console.error('Error in /puzzles/get (auth):', err);
-      // если это Axios‑ошибка, можно вернуть 502, но тут продолжим без авторизации
+      // продолжаем как гость
     }
-  }
-
-  // --- Не авторизованный поток ---
-  try {
-    const puzzles = await fetchPuzzles();
-    // Отдаём паззлы без session_id
-    return res.json({ puzzles, session_id: null });
-  } catch (err) {
-    console.error('Error in /puzzles/get (public):', err);
-    return res.status(502).json({
-      error: 'Failed to fetch puzzles from external service.',
-    });
   }
 });
 
@@ -111,6 +111,7 @@ router.post('/solve', async (req, res) => {
       .status(400)
       .json({ error: 'Missing fen, moves or session_id in body' });
   }
+
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) {
     return res
@@ -120,11 +121,9 @@ router.post('/solve', async (req, res) => {
   const token = auth.slice(7);
 
   try {
-    // 3) Находим lichess_id
+    // 1. Получаем lichess_id по токену
     const userRes = await db.query(
-      `SELECT lichess_id
-         FROM chesscup.chesscup_users
-        WHERE access_token = $1`,
+      `SELECT lichess_id FROM chesscup.chesscup_users WHERE access_token = $1`,
       [token]
     );
     if (!userRes.rowCount) {
@@ -132,13 +131,15 @@ router.post('/solve', async (req, res) => {
     }
     const lichessId = userRes.rows[0].lichess_id;
 
-    // 4) Достаём сессию вместе с mode
+    // 2. Загружаем сессию вместе с mode, theme, rating
     const sessRes = await db.query(
       `SELECT session_id,
               puzzles,
               current_session_puzzle_index,
               current_session_points,
-              mode
+              mode,
+              theme,
+              rating
          FROM chesscup.chesscup_sessions
         WHERE lichess_id = $1
           AND session_id = $2`,
@@ -150,15 +151,18 @@ router.post('/solve', async (req, res) => {
         .status(400)
         .json({ error: 'Invalid or expired session_id' });
     }
+
     const {
       session_id: sessionId,
       puzzles: puzzlesText,
       current_session_puzzle_index: currentIndex,
       current_session_points: currentPoints,
       mode,
+      theme,
+      rating,
     } = sessRes.rows[0];
 
-    // 5) Парсим и находим индекс
+    // 3. Парсим пазлы
     let puzzles;
     try {
       puzzles = JSON.parse(puzzlesText).puzzles;
@@ -167,6 +171,8 @@ router.post('/solve', async (req, res) => {
         .status(500)
         .json({ error: 'Invalid puzzles format in DB' });
     }
+
+    // 4. Находим индекс текущего
     const idx = puzzles.findIndex((p) => p.fen === fen);
     if (idx === -1) {
       return res
@@ -174,12 +180,11 @@ router.post('/solve', async (req, res) => {
         .json({ error: 'Puzzle not found in session' });
     }
 
-    // 6) Считаем новый индекс и очки
+    // 5. Обновляем индекс и очки
     const newIndex = idx === currentIndex ? currentIndex + 1 : idx;
     const gainedPoint = moves === puzzles[idx].moves ? 1 : 0;
     const newPoints = currentPoints + gainedPoint;
 
-    // 7) Обновляем сессию
     await db.query(
       `UPDATE chesscup.chesscup_sessions
           SET current_session_puzzle_index = $1,
@@ -189,24 +194,36 @@ router.post('/solve', async (req, res) => {
       [newIndex, newPoints, sessionId]
     );
 
-    // 8) Логируем историю с mode
+    // 6. Логируем историю (расширим потом, если нужно будет)
     await db.query(
       `INSERT INTO chesscup.user_points_history
-         (session_id, lichess_id, points, mode)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (session_id)
-       DO UPDATE SET
-         points      = EXCLUDED.points,
-         mode        = EXCLUDED.mode,
-         recorded_at = now()`,
-      [sessionId, lichessId, newPoints, mode]
+     (session_id, lichess_id, points, mode, theme, rating)
+   VALUES ($1, $2, $3, $4, $5, $6)
+   ON CONFLICT (session_id)
+   DO UPDATE SET
+     points      = EXCLUDED.points,
+     mode        = EXCLUDED.mode,
+     theme       = EXCLUDED.theme,
+     rating      = EXCLUDED.rating,
+     recorded_at = now()`,
+      [
+        sessionId,
+        lichessId,
+        newPoints,
+        mode,
+        theme || null,
+        rating || null,
+      ]
     );
 
-    // 9) Отдаём результат
+    // 7. Отдаём результат
     return res.json({
       session_id: sessionId,
       current_index: newIndex,
       current_points: newPoints,
+      mode,
+      theme,
+      rating,
     });
   } catch (err) {
     console.error('Error in /puzzles/solve:', err);

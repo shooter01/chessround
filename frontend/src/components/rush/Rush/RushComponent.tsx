@@ -91,11 +91,15 @@ export default function PuzzleRush() {
       // достаём режим из localStorage (или дефолт)
       const raw = localStorage.getItem('rushModeKey') || '5';
       const mode = raw === 'survival' ? 'survival' : `${raw}m`;
-      const { data } = await axios.get<{
-        puzzles: any[];
-        session_id: string;
-      }>(`${API_BASE}/puzzles/get`, {
-        params: { mode },
+      const searchParams = new URLSearchParams(window.location.search);
+      const theme = searchParams.get('theme') || '';
+      const rating = parseInt(searchParams.get('rating') || '0', 10);
+      const { data } = await axios.get(`${API_BASE}/puzzles/get`, {
+        params: {
+          mode,
+          theme: theme || undefined, // если пусто, не передаём
+          rating: rating > 0 ? rating : undefined,
+        },
         headers: {
           Accept: 'application/json',
           Authorization: `Bearer ${token}`,
