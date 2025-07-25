@@ -22,7 +22,7 @@ const RushModule: React.FC = () => {
         <Route path="/tournaments" element={<TournamentModule />} />
         <Route path="/tournaments/:slug" element={<TournamentResults />} />
         <Route path="/rush/*" element={<Rush />} />
-        <Route path="/puzzle/:puzzle_id" element={<PuzzleDisplay />} />
+        <Route path="/custompuzzle/:puzzle_id" element={<PuzzleDisplay />} />
         <Route path="/auth" element={<LichessAuth />} />
         <Route path="/lichess-callback" element={<LichessCallback />} />
         <Route path="/" element={<Main />} />
