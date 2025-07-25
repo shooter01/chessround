@@ -16,7 +16,7 @@ import CurrentPuzzle from './current/current';
 import ResultCard from './components/ResultCard/ResultCard.jsx';
 import RushDefaultState from './RightPanel/DefaultState.tsx';
 import RushStartedState from './RightPanel/RushStartedState.tsx';
-let canChangePuzzle = true;
+// let canChangePuzzle = true;
 import { useAuth } from '../../../contexts/AuthContext.tsx';
 import { useRecords } from '../hooks/useRecords';
 import { API_BASE } from '@api/api';
@@ -35,9 +35,9 @@ if (!window.site.load)
     });
   });
 
-window.puzzlesCounter = -1;
+// window.puzzlesCounter = -1;
 // это потом полетит на бек для проверки
-window.currentPuzzlesMoves = [];
+// window.currentPuzzlesMoves = [];
 window.currentPuzzle;
 
 export default function PuzzleRush() {
@@ -64,14 +64,19 @@ export default function PuzzleRush() {
   const [error, setError] = useState<string | null>(null);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [longestStreak, setLongestStreak] = useState(0);
+  const { bestToday, bestAllTime, refetchRecords } = useRecords(mode, token);
+  const [correctPuzzles, setCorrectPuzzles] = useState<CorrectPuzzle[]>([]);
+
   // const [bestToday, setBestToday] = useState<number>(0);
   // const [bestAllTime, setBestAllTime] = useState<number>(0);
   const [promoVisible, setPromoVisible] = useState(false);
   window.handleStart = async () => {
     try {
+      window.puzzlesCounter = -1;
       setShowResults(false);
       setIsFinished(false);
       setCorrectPuzzles([]);
+      setPuzzles([]);
       window.currentPuzzlesMoves = [];
       setShowCountdown(true);
       setIsStarted(true);
@@ -165,24 +170,27 @@ export default function PuzzleRush() {
     window.cg.setAutoShapes([]);
 
     window.puzzlesCounter++;
-    console.log(puzzles[puzzlesCounter]);
+    // console.log(puzzles[puzzlesCounter]);
     window.currentPuzzlesMoves = [];
 
     window.currentPuzzle = new CurrentPuzzle(puzzlesCounter, puzzles[puzzlesCounter]);
     window.currentPuzzle.startFen = puzzles[puzzlesCounter].fen;
     window.chess.load(puzzles[puzzlesCounter].fen);
     setPov(window.currentPuzzle.pov);
-    if (!canChangePuzzle) {
-      return;
-    }
+    // if (!canChangePuzzle) {
+    //   return;
+    // }
     window.setPosition();
 
     setTimeout(() => {
       if (window.puzzlesCounter !== 0) window.playComputerMove();
     }, 300);
   };
-
-  const [correctPuzzles, setCorrectPuzzles] = useState<CorrectPuzzle[]>([]);
+  useEffect(() => {
+    if (isFinished) {
+      refetchRecords();
+    }
+  }, [isFinished, refetchRecords]);
   useEffect(() => {
     // Расширяем Window интерфейс, чтобы TS не ругался:
 
@@ -209,7 +217,7 @@ export default function PuzzleRush() {
     const falseCount = correctPuzzles.filter((p) => p.result === false).length;
 
     if (falseCount >= 3) {
-      canChangePuzzle = false;
+      // canChangePuzzle = false;
       setIsStarted(false);
       setIsFinished(true);
       setTimeout(() => {
@@ -217,7 +225,6 @@ export default function PuzzleRush() {
       }, 300);
     }
   }, [correctPuzzles, setShowResults, setIsStarted]);
-  const { bestToday, bestAllTime } = useRecords(mode, token);
 
   return (
     <Container maxWidth="lg">

@@ -18,6 +18,7 @@ import puzzleIcon from '@iconify-icons/twemoji/puzzle-piece';
 import swordsIcon from '@iconify-icons/twemoji/crossed-swords';
 import trophyIcon from '@iconify-icons/twemoji/trophy';
 import BuildIcon from '@mui/icons-material/Build';
+import { useTranslation } from 'react-i18next';
 
 type Mode = 'puzzle' | 'duel' | 'tournament';
 
@@ -29,9 +30,14 @@ interface ItemConfig<T extends string> {
 }
 
 const modes: ItemConfig<Mode>[] = [
-  { key: 'puzzle', label: 'Puzzle', icon: puzzleIcon, path: '/rush' },
-  { key: 'duel', label: 'Duel', icon: swordsIcon, path: '/duel' },
-  { key: 'tournament', label: 'Tournament', icon: trophyIcon, path: '/tournaments' },
+  { key: 'puzzle', label: 'puzzleSelector.modes.puzzle', icon: puzzleIcon, path: '/rush' },
+  { key: 'duel', label: 'puzzleSelector.modes.duel', icon: swordsIcon, path: '/duel' },
+  {
+    key: 'tournament',
+    label: 'puzzleSelector.modes.tournament',
+    icon: trophyIcon,
+    path: '/tournaments',
+  },
 ];
 
 export default function PuzzleSelector() {
@@ -39,6 +45,7 @@ export default function PuzzleSelector() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const glowColor = alpha(theme.palette.primary.main, 0.6);
+  const { t } = useTranslation();
 
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -72,7 +79,7 @@ export default function PuzzleSelector() {
             mb: 3,
           }}
         >
-          SELECT MODE
+          {t('puzzleSelector.selectMode')}
         </Typography>
 
         <Stack direction="row" spacing={2} sx={{ mb: 4 }}>
@@ -105,7 +112,7 @@ export default function PuzzleSelector() {
                     color: theme.palette.text.primary,
                   }}
                 >
-                  {m.label}
+                  {t(m.label)}
                 </Typography>
               </Box>
             );
@@ -118,7 +125,9 @@ export default function PuzzleSelector() {
         onClose={() => setModalOpen(false)}
         aria-labelledby="under-construction-title"
       >
-        <DialogTitle id="under-construction-title">Раздел в разработке</DialogTitle>
+        <DialogTitle id="under-construction-title">
+          {t('puzzleSelector.underConstructionTitle')}
+        </DialogTitle>
         <DialogContent
           sx={{
             display: 'flex',
@@ -135,12 +144,12 @@ export default function PuzzleSelector() {
             }}
           />
           <Typography variant="body1" align="center">
-            Скоро здесь появятся новые возможности!
+            {t('puzzleSelector.underConstructionText')}
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setModalOpen(false)} color="primary">
-            ОК
+            {t('common.ok')}
           </Button>
         </DialogActions>
       </Dialog>

@@ -11,9 +11,9 @@ interface ThemeOption {
 const THEMES: ThemeOption[] = [
   { code: 'cburnett', label: 'Cburnett' },
   { code: 'classic', label: 'Classic' },
-  { code: 'neo', label: 'Neo' },
+  // { code: 'neo', label: 'Neo' },
   { code: 'alpha', label: 'Alpha' },
-  { code: 'bases', label: 'Bases' },
+  // { code: 'bases', label: 'Bases' },
 ];
 
 const STORAGE_KEY = 'app-piece-theme';

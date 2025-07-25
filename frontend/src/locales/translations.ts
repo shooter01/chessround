@@ -56,6 +56,32 @@ export const resources = {
       header: {
         welcome: 'Hello, {{username}}!', // added welcome message
       },
+      result: {
+        legendary: 'Legendary!',
+        fantastic: 'Fantastic!',
+        great: 'Great!',
+        keepGoing: 'Keep going!',
+        letsTry: "Let's try!",
+        yourResult: 'Your result',
+        today: 'TODAY',
+        allTime: 'ALL TIME',
+        longestStreak: 'Longest streak',
+        playAgain: 'Play Again',
+        anotherMode: 'Another mode',
+      },
+      puzzleSelector: {
+        selectMode: 'Select Mode',
+        modes: {
+          puzzle: 'Puzzle',
+          duel: 'Duel',
+          tournament: 'Tournament',
+        },
+        underConstructionTitle: 'Under Construction',
+        underConstructionText: 'New features coming soon!',
+      },
+      common: {
+        ok: 'OK',
+      },
       // add other keys as needed
     },
   },
@@ -112,6 +138,32 @@ export const resources = {
       },
       header: {
         welcome: 'Привет, {{username}}!', // added welcome message
+      },
+      result: {
+        legendary: 'Легенда!',
+        fantastic: 'Фантастика!',
+        great: 'Отлично!',
+        keepGoing: 'Продолжай!',
+        letsTry: 'Попробуем?',
+        yourResult: 'Твой результат',
+        today: 'Сегодня',
+        allTime: 'Все время',
+        longestStreak: 'Cерия',
+        playAgain: 'Сыграть ещё',
+        anotherMode: 'Другой режим',
+      },
+      puzzleSelector: {
+        selectMode: 'Выберите режим',
+        modes: {
+          puzzle: 'Пазлы',
+          duel: 'Дуэль',
+          tournament: 'Турнир',
+        },
+        underConstructionTitle: 'Раздел в разработке',
+        underConstructionText: 'Скоро здесь появятся новые возможности!',
+      },
+      common: {
+        ok: 'ОК',
       },
       // add other keys as needed
     },

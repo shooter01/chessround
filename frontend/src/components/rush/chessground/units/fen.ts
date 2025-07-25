@@ -29,7 +29,37 @@ site.sound.load(`correct`, site.sound.url(`${soundBase}/Сorrect.mp3`));
 site.sound.load(`move`, site.sound.url(`${soundBase}/Move.mp3`));
 site.sound.load(`capture`, site.sound.url(`${soundBase}/Capture.mp3`));
 let startX = 0;
-let initialZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom')!) || 400;
+const initialZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom') || '100');
+
+/**
+ * Adjust the board size based on window width:
+ * - if width < 1000px: make board full-width (square)
+ * - otherwise: apply stored zoom logic
+ */
+function adjustBoardSize() {
+  const boardEl = document.getElementById('chessground-examples') as HTMLElement;
+  if (!boardEl) return;
+  const winWidth = window.innerWidth;
+
+  if (winWidth < 1000) {
+    // full width square board
+    boardEl.style.width = `${winWidth}px`;
+    boardEl.style.height = `${winWidth}px`;
+  } else {
+    // apply zoom percentage
+    const base = 320; // base px size at 100%
+    const px = (initialZoom / 100) * base;
+    boardEl.style.width = `${px}px`;
+    boardEl.style.height = `${px}px`;
+  }
+
+  // notify Chessground of resize
+  window.dispatchEvent(new Event('chessground.resize'));
+}
+
+// apply on load and on resize
+window.addEventListener('load', adjustBoardSize);
+window.addEventListener('resize', adjustBoardSize);
 
 export default function resizeHandle(els, pref, ply, visible?): void {
   // if (pref === ShowResizeHandle.Never) return;
@@ -164,8 +194,8 @@ const playUserMove = (orig: Key, dest: Key, promotion?: Role): void =>
   playUci(`${orig}${dest}${promotion ? (promotion === 'knight' ? 'n' : promotion[0]) : ''}`, dest);
 
 const playUci = (uci: Uci, dest: string): void => {
-  console.log(`Playing UCI: ${uci}`);
-  console.log(`actual move: ${window.currentPuzzle.expectedMove()}`);
+  // console.log(`Playing UCI: ${uci}`);
+  // console.log(`actual move: ${window.currentPuzzle.expectedMove()}`);
   let sign = '✗';
 
   if (uci == window.currentPuzzle.expectedMove()) {
@@ -213,7 +243,7 @@ const playUci = (uci: Uci, dest: string): void => {
 
       window.playComputerMove();
     }
-    console.log(`isOver: ${window.currentPuzzle.isOver()}`);
+    // console.log(`isOver: ${window.currentPuzzle.isOver()}`);
   }
 
   if (move.captured) {

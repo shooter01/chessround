@@ -10,7 +10,6 @@ export type Color = 'white' | 'black';
 
 const withGround: WithGround = (f) => {
   const g = window.cg as Api | undefined;
-  console.log(g?.getFen());
 
   return g ? f(g) : undefined;
 };
@@ -130,7 +129,7 @@ export function run(element: Element): {
   function render(): VNode {
     // read saved themes (fallback to 'green' board, 'cburnett' pieces)
     const boardTheme = localStorage.getItem('app-board-theme') || 'green';
-    const pieceTheme = localStorage.getItem('app-piece-theme') || 'neo';
+    const pieceTheme = localStorage.getItem('app-piece-theme') || 'cburnett';
 
     // section gets two classes: one for board BG, one for piece set
     const sectionClass = `section.${boardTheme}.${pieceTheme}`;

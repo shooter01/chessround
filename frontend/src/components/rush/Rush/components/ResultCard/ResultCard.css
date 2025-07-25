@@ -7,7 +7,7 @@
   /* Injected CSS variables (e.g. --primary, --primary-dark, --btn-bg, --btn-hover) */
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  width: 340px;
+  width: 320px;
   max-width: 90%;
   overflow: hidden;
   font-family: 'Segoe UI', sans-serif;
@@ -31,27 +31,27 @@
 .rcard-modern__header {
   /* gradient uses current theme variables */
   background: linear-gradient(135deg, var(--primary-dark), var(--primary));
-  padding: 16px;
+  padding: 12px;
   text-align: center;
 }
 
 .rcard-modern__mood {
   margin: 0;
   color: #fff;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 600;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 /* BODY */
 .rcard-modern__body {
-  padding: 20px;
+  padding: 16px;
   background: #fff;
 }
 
 .rcard-modern__label {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   color: #666;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -59,7 +59,7 @@
 
 .rcard-modern__result {
   margin: 8px 0 0;
-  font-size: 3rem;
+  font-size: 2.5rem;
   font-weight: 700;
   line-height: 1;
   color: #222;
@@ -69,7 +69,7 @@
 .rcard-modern__divider {
   height: 1px;
   background: #e0e0e0;
-  margin: 20px 0;
+  margin: 16px 0;
 }
 
 /* STATS */
@@ -86,7 +86,7 @@
 }
 
 .rcard-modern__stat-icon {
-  font-size: 1.4rem;
+  font-size: 1.2rem;
   color: var(--primary);
   margin-bottom: 6px;
   transition: transform 0.3s;
@@ -97,7 +97,7 @@
 }
 
 .rcard-modern__stat-value {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: #222;
 }
@@ -112,7 +112,7 @@
 
 /* STREAK */
 .rcard-modern__streak-wrapper {
-  margin: 0 auto 20px;
+  margin: 0 auto 16px;
   width: 80%;
 }
 
@@ -122,7 +122,7 @@
 }
 
 .rcard-modern__streak-table td {
-  padding: 8px;
+  padding: 6px;
   border: 1px solid #e0e0e0;
   font-size: 0.9rem;
 }
@@ -148,9 +148,9 @@
 /* BUTTONS */
 .rcard-modern__btn {
   width: 100%;
-  padding: 12px 0;
+  padding: 10px 0;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
