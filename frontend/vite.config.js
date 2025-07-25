@@ -26,5 +26,6 @@ export default defineConfig({
       interval: 100,
     },
     allowedHosts: ['localhost', 'dofrag.com', 'dofrag.com:3000', '.dofrag.com'],
+    historyApiFallback: true,
   },
 });

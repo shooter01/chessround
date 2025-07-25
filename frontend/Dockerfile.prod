@@ -28,6 +28,7 @@ RUN rm -rf /usr/share/nginx/html/*
 
 # Копируем готовый билд
 COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # EXPOSE prod порт
 EXPOSE 80
