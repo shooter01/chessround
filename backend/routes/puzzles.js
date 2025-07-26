@@ -15,33 +15,32 @@ const PUZZLES_API =
 
 // router.use(checkJwt);
 
-/**
- * [GET] /puzzles/get?level=5&theme=fork&limit=2
- */
+// [GET] /puzzles/get?mode=3m&theme=fork&rating=1500
 router.get('/get', async (req, res) => {
   let { mode = '3m', theme = '', rating = '0' } = req.query;
 
+  // --- 0) Нормализуем mode ---
   if (mode === '3' || mode === '5') mode += 'm';
   const allowedModes = ['3m', '5m', 'survival'];
   if (!allowedModes.includes(mode)) {
     return res.status(400).json({ error: 'Invalid mode parameter' });
   }
 
-  // 🔍 Validate and parse rating
+  // --- 1) Валидируем rating ---
   const allowedRatings = [0, 1500, 2000, 2500];
   const parsedRating = parseInt(rating, 10);
   const finalRating = allowedRatings.includes(parsedRating)
     ? parsedRating
     : 0;
 
-  // 🔍 Validate theme — leave as string, max 50
+  // --- 2) Валидируем theme ---
   const finalTheme =
     typeof theme === 'string' ? theme.slice(0, 50) : '';
 
+  // Внутренняя функция для запроса к puzzles-API
   async function fetchPuzzles() {
     const response = await axios.get(`${PUZZLES_API}/puzzles`, {
       headers: { Accept: 'application/json' },
-      // 👇 если внешний сервис принимает эти параметры — добавим
       params: {
         ...(finalTheme && { theme: finalTheme }),
         ...(finalRating > 0 && { rating: finalRating }),
@@ -50,22 +49,22 @@ router.get('/get', async (req, res) => {
     return response.data;
   }
 
+  // --- 3) Пытаемся авторизовать по Bearer ---
   const auth = req.headers.authorization;
-  let sessionId = null;
-
   if (auth?.startsWith('Bearer ')) {
     const token = auth.slice(7);
     try {
       const userQ = await db.query(
         `SELECT lichess_id
-         FROM chesscup.chesscup_users
-         WHERE access_token = $1`,
+           FROM chesscup.chesscup_users
+          WHERE access_token = $1`,
         [token]
       );
       if (userQ.rowCount > 0) {
         const lichessId = userQ.rows[0].lichess_id;
         const puzzles = await fetchPuzzles();
 
+        // 4) UPSERT сессии для авторизованного
         const upsertSql = `
           INSERT INTO chesscup.chesscup_sessions
             (lichess_id, puzzles, mode, theme, rating)
@@ -89,14 +88,24 @@ router.get('/get', async (req, res) => {
           finalTheme || null,
           finalRating || null,
         ]);
-        sessionId = upsertRes.rows[0].session_id;
-
+        const sessionId = upsertRes.rows[0].session_id;
         return res.json({ puzzles, session_id: sessionId });
       }
     } catch (err) {
       console.error('Error in /puzzles/get (auth):', err);
-      // продолжаем как гость
+      // fall through to guest flow
     }
+  }
+
+  // --- 5) Гостевой поток: без session_id ---
+  try {
+    const puzzles = await fetchPuzzles();
+    return res.json({ puzzles, session_id: null });
+  } catch (err) {
+    console.error('Error in /puzzles/get (public):', err);
+    return res.status(502).json({
+      error: 'Failed to fetch puzzles from external service.',
+    });
   }
 });
 
