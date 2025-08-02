@@ -2,11 +2,19 @@
 import * as React from 'react';
 import { useEffect, useRef, useCallback } from 'react';
 import { Chess } from 'chess.js';
-import { init } from 'snabbdom';
-import { h } from 'snabbdom';
-import { classModule, propsModule, styleModule, eventListenersModule } from 'snabbdom';
-import { Chessground } from 'chessground';
-import resizeHandle from './utils/resize';
+import { PromotionCtrl, WithGround } from '../chessground/promotionCtrl';
+import {
+  initChessground,
+  setInitialGround,
+  makeRedraw,
+  ensurePromotionRoot,
+  makePlayUserMove,
+  makeUserMoveHandler,
+  withGround,
+  getGround,
+  applyResize,
+} from './utils/helpers';
+import { configureSiteSound } from './utils/sound_init';
 import './assets/chessground.css';
 import './assets/promotion.css';
 import './assets/pieces.css';
@@ -14,178 +22,53 @@ import './assets/board.css';
 import './assets/theme.css';
 import './assets/3d.css';
 import './assets/examples.css';
-import { PromotionCtrl, WithGround } from '../chessground/promotionCtrl';
-import { initialGround } from '../chessground/ground';
-import { configureSiteSound } from './utils/sound_init';
 import { log } from '../chessground/units/lib/permalog';
+
 configureSiteSound();
+
+// Простая генерация всех шахматных клеток
+const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+const RANKS = ['1', '2', '3', '4', '5', '6', '7', '8'];
+const SQUARES: string[] = FILES.flatMap((f) => RANKS.map((r) => `${f}${r}`));
+type Key = string;
+
+export function toDests(chess: Chess): Map<Key, Key[]> {
+  const dests = new Map<Key, Key[]>();
+  SQUARES.forEach((s) => {
+    // verbose чтобы получить { to: '...' }
+    // @ts-ignore: chess.js types may vary
+    const ms = chess.moves({ square: s, verbose: true }) as any[];
+    if (ms && ms.length) {
+      dests.set(
+        s,
+        ms.map((m) => m.to),
+      );
+    }
+  });
+  return dests;
+}
+
 const Board: React.FC = () => {
   const dirtyRef = useRef<HTMLDivElement | null>(null);
   const promotionRootRef = useRef<HTMLElement | null>(null);
-  const promotionVnodeRef = useRef<any>(null); // для snabbdom patch
-
-  // держим шахматное состояние отдельно, если нужно
+  const promotionVnodeRef = useRef<any>(null);
   const chessRef = useRef<Chess>(new Chess());
-  window.chess = chessRef.current;
 
-  useEffect(() => {
-    if (!dirtyRef.current) return;
+  // expose для отладки
+  (window as any).chess = chessRef.current;
 
-    // инициализируем chessground
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).cg = Chessground(dirtyRef.current, {
-      // fen: '8/8/8/8/8/4k3/1p6/4K3 b - - 0 1',
-      // fen: '2k5/5P2/2K5/8/8/8/8/8 w - - 0 1',
-      // orientation: 'white',
-      // orientation: 'black',
-      // turnColor: 'black',
-      events: {
-        move: userMove,
-      },
-    });
-    // chess.load('8/8/8/8/8/4k3/1p6/4K3 b - - 0 1');
-    // chess.load('2k5/5P2/2K5/8/8/8/8/8 w - - 0 1');
-    console.log(chess.turn());
-
-    const withGround: WithGround = (f: any) => {
-      const g = (window as any).cg as any;
-      return g ? f(g) : undefined;
-    };
-
-    const setGround = () =>
-      withGround((g: any) => g.set(initialGround(/* если нужен контекст, адаптируй */)));
-
-    // snabbdom-патчер для промоушена
-    const patch = init([classModule, propsModule, styleModule, eventListenersModule]);
-
-    // redraw, который PromotionCtrl будет вызывать
-    const redraw = () => {
-      if (!promotionRootRef.current) return;
-      const promotion = (window as any).promotion as PromotionCtrl;
-      if (!promotion) return;
-
-      const maybeVNode = promotion.view?.(); // может быть undefined
-      const containerVNode = h('div.promotion-wrapper', [maybeVNode || h('!')]);
-
-      promotionVnodeRef.current = patch(
-        promotionVnodeRef.current || promotionRootRef.current,
-        containerVNode,
-      );
-    };
-
-    const ensurePromotionRoot = () => {
-      const cgContainer = dirtyRef.current?.querySelector('cg-container') as HTMLElement | null;
-      if (!cgContainer) {
-        // если ещё не создан, попробуем через чуть-чуть
-        setTimeout(ensurePromotionRoot, 30);
-        return;
-      }
-
-      // чтобы absolutely positioned overlay работал относительно контейнера
-      if (getComputedStyle(cgContainer).position === 'static') {
-        cgContainer.style.position = 'relative';
-      }
-
-      if (!promotionRootRef.current) {
-        const promoEl = document.createElement('div');
-        Object.assign(promoEl.style, {
-          position: 'absolute',
-          top: '0',
-          left: '0',
-          right: '0',
-          bottom: '0',
-          pointerEvents: 'none', // внутренние элементы могут переопределить
-          zIndex: '10',
-        });
-        cgContainer.appendChild(promoEl);
-        promotionRootRef.current = promoEl;
-        promotionVnodeRef.current = promoEl;
-        // initial render
-        redraw();
-      }
-    };
-
-    // создаём контроллер промоушена
-    (window as any).promotion = new PromotionCtrl(withGround, setGround, redraw);
-
-    // начальное рендерение promotion (пусто)
-    if (!promotionRootRef.current) {
-      // создаём DOM-элемент для snabbdom-промоушена и вставляем поверх доски
-      const promoEl = document.createElement('div');
-      promoEl.style.position = 'absolute';
-      promoEl.style.top = '0';
-      promoEl.style.left = '0';
-      promoEl.style.right = '0';
-      promoEl.style.bottom = '0';
-      promoEl.style.pointerEvents = 'none'; // может быть переопределено внутри
-      // контейнер внутри относительно родителя
-      dirtyRef.current.style.position = 'relative';
-      ensurePromotionRoot();
-
-      // dirtyRef.current.appendChild(promoEl);
-      // promotionRootRef.current = promoEl;
-      // promotionVnodeRef.current = promoEl;
-    }
-
-    // размер (аналог jQuery)
-    const width = 300;
-    const el = dirtyRef.current;
-    const w = typeof width === 'number' ? `${width}px` : width;
-    el.style.width = w;
-    el.style.height = w;
-
-    // вызов resizeHandle
-    const visible = (p: number) => true;
-    const pref = {}; // подставь нужные настройки
-    let ply = 0; // актуализируй, если изменяется
-    resizeHandle({ container: el }, pref, ply, visible);
-
-    // initial draw promotion (чтобы очистить)
-    redraw();
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Обёртка хода от пользователя
+  // playUserMove (вспомогательный)
   const playUserMove = useCallback((orig: string, dest: string, promotion?: string) => {
-    // формируем UCI, с учётом промоушена
-    let uci = `${orig}${dest}`;
-    if (promotion) {
-      // 'n' для knight, иначе первая буква
-      uci += promotion === 'knight' ? 'n' : promotion[0];
-    }
-
-    log(orig, dest, promotion);
-
-    const chess = chessRef.current;
-    const move = chess.move(uci as any); // типизируй по необходимости
-    if (!move) {
-      // неверный ход — обработай ошибку
-      return;
-    }
-
-    // обновляем chessground визуально
-    const cg = (window as any).cg;
-    cg.set({
-      lastMove: [move.from, move.to],
-      check: chess.isCheck(),
-      highlight: { check: true },
-    });
-
-    // пример: показать автошап или звук
-    if (move.captured) {
-      // site.sound.play('capture', ...);
-    } else {
-      // site.sound.play('move', ...);
-    }
+    const handler = makePlayUserMove(chessRef.current);
+    handler(orig, dest, promotion);
   }, []);
 
-  // move handler, прокидываем promotion hooks
+  // userMove с промоушеном
   const userMove = useCallback(
     (orig: string, dest: string, meta?: any) => {
       const promotionCtrl = (window as any).promotion as PromotionCtrl;
       if (!promotionCtrl) return;
-      log(orig, dest, meta);
+      log && log(orig, dest, meta);
       const isPromoting = promotionCtrl.start(
         orig,
         dest,
@@ -193,26 +76,110 @@ const Board: React.FC = () => {
           submit: (o: string, d: string, role: string) => {
             playUserMove(o, d, role);
           },
-          show: (ctrl: any, roles: any) => {
-            // тут можешь, например, подсветить варианты — необязательно
+          show: (_ctrl: any, _roles: any) => {
+            // можно подсветить варианты
           },
         },
         meta,
       );
-
       if (!isPromoting) {
         playUserMove(orig, dest);
       }
-      // после хода/промоушена нужно перерисовать promotion UI
-      // PromotionCtrl сам вызывает redraw при необходимости
     },
     [playUserMove],
   );
 
+  useEffect(() => {
+    const dirty = dirtyRef.current;
+    if (!dirty) {
+      console.error('dirtyRef missing');
+      return;
+    }
+
+    // инициализация chessground с заглушкой; потом заменим move handler
+    const cg = initChessground(dirty, () => {});
+    setInitialGround();
+
+    // подготовка promotion
+    const redraw = makeRedraw(promotionRootRef, promotionVnodeRef);
+    ensurePromotionRoot(dirty, promotionRootRef, promotionVnodeRef, redraw);
+
+    // withGround и setGround
+    const withGroundFn: WithGround = (f: any) => {
+      const g = getGround();
+      return g ? f(g) : undefined;
+    };
+    const setGround = () =>
+      withGroundFn((g: any) => g.set(/* при необходимости передай контекст */));
+
+    // создаём контроллер промоушена
+    (window as any).promotion = new PromotionCtrl(withGroundFn, () => setInitialGround(), redraw);
+
+    // реальный handler хода
+    const realPlayUserMove = makePlayUserMove(chessRef.current);
+    const realUserMove = makeUserMoveHandler(
+      (window as any).promotion as PromotionCtrl,
+      realPlayUserMove,
+    );
+
+    if (cg) {
+      cg.set({
+        events: {
+          move: realUserMove,
+        },
+      });
+    }
+
+    // initial redraw promotion
+    redraw();
+
+    // resize
+    applyResize(dirty, {}, 0, () => true);
+
+    // делаем userMove / realUserMove доступным глобально, чтобы window.setPosition мог его использовать
+    (window as any).userMove = realUserMove;
+
+    // определяем setPosition с использованием same userMove
+    window.setPosition = (lastMove: any) => {
+      const chess = (window as any).chess as Chess;
+      const cgInstance = (window as any).cg;
+      if (!cgInstance || !chess) return;
+      const puzzle = (window as any).currentPuzzle || {};
+      const pov = puzzle.pov || 'white';
+      cgInstance.set({
+        fen: chess.fen(),
+        lastMove: lastMove ? lastMove : null,
+        check: chess.isCheck(),
+        animation: {
+          duration: 100,
+        },
+        orientation: pov,
+        highlight: {
+          check: true,
+        },
+        turnColor: chess.turn() === 'w' ? 'white' : 'black',
+        premovable: {
+          enabled: true,
+        },
+        movable: {
+          showDests: true,
+          free: false,
+          color: pov,
+          dests: toDests(chess),
+        },
+        events: {
+          move: realUserMove,
+        },
+      });
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="blue cburnett is2d" style={{ position: 'relative' }}>
       <div id="dirty" ref={(r) => (dirtyRef.current = r)} className="cg-board-wrap" />
-      {/* Промоушен встраивается автоматически внутрь #dirty через snabbdom в useEffect */}
+      {/* Промоушен встраивается автоматически */}
     </div>
   );
 };

@@ -3,10 +3,12 @@ import { init } from 'snabbdom';
 import { h } from 'snabbdom';
 import { classModule, propsModule, styleModule, eventListenersModule } from 'snabbdom';
 import { Chess } from 'chess.js';
+import { Chessground } from 'chessground';
 import resizeHandle from '../utils/resize'; // поправь путь, если нужно
 import { initialGround } from '../../chessground/ground';
-import type { PromotionCtrl, WithGround } from '../../chessground/promotionCtrl';
+import type { PromotionCtrl } from '../../chessground/promotionCtrl';
 import { log } from '../../chessground/units/lib/permalog';
+import { Chess, SQUARES } from 'chess.js';
 
 /**
  * Упрощённый withGround — вызывает переданную функцию, если есть текущий chessground.
@@ -14,6 +16,49 @@ import { log } from '../../chessground/units/lib/permalog';
 export function withGround(f: (g: any) => any) {
   const g = (window as any).cg;
   return g ? f(g) : undefined;
+}
+
+/**
+ * Возвращает текущий chessground (или undefined).
+ */
+export function getGround(): any {
+  return (window as any).cg;
+}
+
+/**
+ * Инициализирует chessground и возвращает его. Привязывает userMove handler.
+ */
+export function initChessground(
+  container: HTMLElement,
+  userMove: (orig: string, dest: string, meta?: any) => void,
+): any {
+  const cgInstance = Chessground(container, {
+    fen: '8/8/8/8/8/4k3/1p6/4K3 b - - 0 1',
+    orientation: 'black',
+    turnColor: 'black',
+    events: {
+      move: userMove,
+    },
+  });
+  (window as any).cg = cgInstance;
+  return cgInstance;
+}
+
+/**
+ * Ставит начальное состояние ground.
+ */
+export function setInitialGround() {
+  const g = getGround();
+  if (g && typeof g.set === 'function') {
+    let cfg;
+    try {
+      cfg = initialGround((window as any).currentPuzzle ?? {});
+    } catch (e) {
+      console.warn('initialGround failed:', e);
+      return;
+    }
+    g.set(cfg);
+  }
 }
 
 /**
@@ -41,8 +86,7 @@ export function makeRedraw(
 }
 
 /**
- * Гарантирует наличие корня для promotion с перекомпоновкой.
- * Самостоятельно ставит promotionRootRef и initial vnode.
+ * Обеспечивает root для промоушена (внутри chessground-контейнера).
  */
 export function ensurePromotionRoot(
   dirtyEl: HTMLElement,
@@ -73,38 +117,10 @@ export function ensurePromotionRoot(
       cgContainer.appendChild(promoEl);
       promotionRootRef.current = promoEl;
       promotionVnodeRef.current = promoEl;
-      // initial render
       redraw();
     }
   };
   tryEnsure();
-}
-
-/**
- * Инициализирует chessground и возвращает его. Привязывает userMove handler.
- */
-export function initChessground(
-  container: HTMLElement,
-  userMove: (orig: string, dest: string, meta?: any) => void,
-): any {
-  const cg = ((window as any).cg = (window as any).Chessground
-    ? (window as any).Chessground(container, {
-        fen: '8/8/8/8/8/4k3/1p6/4K3 b - - 0 1',
-        orientation: 'black',
-        turnColor: 'black',
-        events: {
-          move: userMove,
-        },
-      })
-    : null);
-  return cg;
-}
-
-/**
- * Ставит начальное состояние ground.
- */
-export function setInitialGround() {
-  withGround((g: any) => g.set(initialGround()));
 }
 
 /**
@@ -118,11 +134,11 @@ export function makePlayUserMove(
     if (promotion) {
       uci += promotion === 'knight' ? 'n' : promotion[0];
     }
-    log(orig, dest, promotion);
+    log && log(orig, dest, promotion);
     const move = chess.move(uci as any);
     if (!move) return;
 
-    const cg = (window as any).cg;
+    const cg = getGround();
     if (cg) {
       cg.set({
         lastMove: [move.from, move.to],
@@ -130,13 +146,12 @@ export function makePlayUserMove(
         highlight: { check: true },
       });
     }
-
-    // здесь можно вставить звуки/другие эффекты в зависимости от move.captured и т.п.
+    // эффекты (звук и пр.) можно вставить здесь
   };
 }
 
 /**
- * Обёртка, которая комбинирует PromotionCtrl и playUserMove.
+ * Комбинирует PromotionCtrl и playUserMove в handler.
  */
 export function makeUserMoveHandler(
   promotionCtrl: PromotionCtrl,
@@ -152,7 +167,7 @@ export function makeUserMoveHandler(
           playUserMove(o, d, role);
         },
         show: (_ctrl: any, _roles: any) => {
-          // noop или подсветка, если нужно
+          // noop или визуализация
         },
       },
       meta,
@@ -178,7 +193,6 @@ export function applyResize(
   el.style.height = w;
   resizeHandle({ container: el }, pref, ply, visible);
 }
-
 window.setPosition = (lastMove) => {
   window.cg.set({
     fen: window.chess.fen(),
@@ -206,3 +220,15 @@ window.setPosition = (lastMove) => {
     },
   });
 };
+export function toDests(chess: Chess): Map<Key, Key[]> {
+  const dests = new Map();
+  SQUARES.forEach((s) => {
+    const ms = chess.moves({ square: s, verbose: true });
+    if (ms.length)
+      dests.set(
+        s,
+        ms.map((m) => m.to),
+      );
+  });
+  return dests;
+}
