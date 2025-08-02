@@ -47,11 +47,6 @@ export class PromotionCtrl {
     this.withGround((g) => {
       const premovePiece = g.state.pieces.get(orig);
       const piece = premovePiece || g.state.pieces.get(dest);
-      console.log(
-        `start: orig=${orig}, dest=${dest}, hooks=${hooks}, meta=${meta}, turnColor=${g.state.turnColor}`,
-        piece,
-      );
-
       if (
         piece?.role === 'pawn' &&
         ((dest[1] === '8' && g.state.turnColor === 'black') ||

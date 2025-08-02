@@ -8,8 +8,8 @@ interface CountdownOverlayProps {
   onComplete?: () => void;
 }
 
-site.sound.load(`tick`, site.sound.url(`/sound/tick.mp3`));
-site.sound.load(`start`, site.sound.url(`/sound/start.mp3`));
+// site.sound.load(`tick`, site.sound.url(`/sound/tick.mp3`));
+// site.sound.load(`start`, site.sound.url(`/sound/start.mp3`));
 
 /**
  * Считает 3 → 2 → 1 → GO
