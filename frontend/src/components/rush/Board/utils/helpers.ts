@@ -178,3 +178,31 @@ export function applyResize(
   el.style.height = w;
   resizeHandle({ container: el }, pref, ply, visible);
 }
+
+window.setPosition = (lastMove) => {
+  window.cg.set({
+    fen: window.chess.fen(),
+    lastMove: lastMove ? lastMove : null,
+    check: window.chess.isCheck(),
+    animation: {
+      duration: 100,
+    },
+    orientation: currentPuzzle.pov,
+    highlight: {
+      check: true,
+    },
+    turnColor: window.chess.turn() === 'w' ? 'white' : 'black',
+    premovable: {
+      enabled: true,
+    },
+    movable: {
+      showDests: true,
+      free: false,
+      color: currentPuzzle.pov,
+      dests: toDests(window.chess),
+    },
+    events: {
+      move: userMove,
+    },
+  });
+};

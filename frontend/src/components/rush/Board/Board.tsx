@@ -16,8 +16,9 @@ import './assets/3d.css';
 import './assets/examples.css';
 import { PromotionCtrl, WithGround } from '../chessground/promotionCtrl';
 import { initialGround } from '../chessground/ground';
+import { configureSiteSound } from './utils/sound_init';
 import { log } from '../chessground/units/lib/permalog';
-
+configureSiteSound();
 const Board: React.FC = () => {
   const dirtyRef = useRef<HTMLDivElement | null>(null);
   const promotionRootRef = useRef<HTMLElement | null>(null);
@@ -33,16 +34,16 @@ const Board: React.FC = () => {
     // инициализируем chessground
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).cg = Chessground(dirtyRef.current, {
-      fen: '8/8/8/8/8/4k3/1p6/4K3 b - - 0 1',
+      // fen: '8/8/8/8/8/4k3/1p6/4K3 b - - 0 1',
       // fen: '2k5/5P2/2K5/8/8/8/8/8 w - - 0 1',
       // orientation: 'white',
-      orientation: 'black',
-      turnColor: 'black',
+      // orientation: 'black',
+      // turnColor: 'black',
       events: {
         move: userMove,
       },
     });
-    chess.load('8/8/8/8/8/4k3/1p6/4K3 b - - 0 1');
+    // chess.load('8/8/8/8/8/4k3/1p6/4K3 b - - 0 1');
     // chess.load('2k5/5P2/2K5/8/8/8/8/8 w - - 0 1');
     console.log(chess.turn());
 
