@@ -9,6 +9,11 @@ export const AutoQueen = {
   Always: 2,
 };
 
+export function isPromotionSquareByPawnColor(dest, pawnColor) {
+  const rank = dest && dest[1];
+  return (pawnColor === 'white' && rank === '8') || (pawnColor === 'black' && rank === '1');
+}
+
 /**
  * Проверка, что dest — последняя горизонталь для текущей стороны.
  * @param {string} dest например 'e8'
@@ -71,18 +76,22 @@ export class PromotionCtrl {
   start(orig, dest, hooks, ctx, forceAutoQueen = false, roles = PROMOTABLE_ROLES) {
     const meta = ctx?.meta || {};
     const premovePiece = ctx?.pieceAtOrig;
-    const piece = premovePiece || ctx?.pieceAtDest;
+    // фигура, которой ходим (приоритет — та, что на orig; если премува нет — можно подставить pieceAtDest/Orig)
+    const piece = premovePiece || ctx?.pieceAtDest || ctx?.pieceAtOrig;
 
+    // 1) Должна ходить ПЕШКА
     if (!piece || piece.role !== 'pawn') return false;
-    if (!isPromotionSquare(dest, ctx.movingColor)) return false;
 
-    // Если заранее выбран роль для премува — используем её
+    // 2) Клетка промоции определяется по цвету пешки (надёжно и без turnColor)
+    if (!isPromotionSquareByPawnColor(dest, piece.color)) return false;
+
+    // 3) Предварительно выбранная фигура для премува
     if (this.prePromotionRole && meta.premove) {
       this.doPromote({ orig, dest, hooks }, this.prePromotionRole);
       return true;
     }
 
-    // Авто-ферзь (если не зажат Ctrl и нет активного выбора)
+    // 4) Авто-ферзь
     const shouldAutoQueen =
       !meta.ctrlKey &&
       !this.promoting &&
@@ -96,7 +105,7 @@ export class PromotionCtrl {
       return true;
     }
 
-    // Нужен выбор роли — сообщаем UI
+    // 5) Иначе просим UI показать выбор
     this.promoting = { orig, dest, pre: !!meta.premove, hooks };
     hooks.show?.(this, roles);
     return true;

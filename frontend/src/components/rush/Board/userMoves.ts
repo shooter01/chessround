@@ -5,25 +5,50 @@ import { glyphToSvg } from './glyphs';
 
 const promo = new PromotionCtrl({ autoQueenPref: false });
 
+function detectPieceAtOrig(orig: Key) {
+  // Вариант через chess.js (если используешь window.chess)
+  if (window.chess && typeof window.chess.get === 'function') {
+    const p = window.chess.get(orig); // { type:'p|n|b|r|q|k', color:'w|b' } | null
+    if (!p) return undefined;
+    const roleMap: Record<string, any> = {
+      p: 'pawn',
+      n: 'knight',
+      b: 'bishop',
+      r: 'rook',
+      q: 'queen',
+      k: 'king',
+    };
+    return { role: roleMap[p.type], color: p.color === 'w' ? 'white' : 'black' };
+  }
+
+  // Вариант через chessground (если есть доступ)
+  if (typeof ground !== 'undefined' && ground?.state?.pieces) {
+    const gPiece = ground.state.pieces.get(orig); // {role,color} | undefined
+    if (gPiece) return { role: gPiece.role, color: gPiece.color };
+  }
+
+  return undefined;
+}
+
 export const userMove = (orig: Key, dest: Key, capture: Key): void => {
+  const pieceAtOrig = detectPieceAtOrig(orig); // КЛЮЧЕВОЕ: реальная фигура с orig
+
   const isPromoting = promo.start(
     orig,
     dest,
     {
-      submit: (o, d, role) => playUserMove(o, d, role), // ваша логика хода
+      submit: (o, d, role) => playUserMove(o, d, role),
       show: (ctrl, rolesOrFalse) => {
         if (rolesOrFalse === false) hidePromotionUI();
-        else showPromotionUI(ctrl, rolesOrFalse); // <- ctrl первым
+        else showPromotionUI(ctrl, rolesOrFalse);
       },
     },
     {
-      // movingColor: turnColor, // 'white' | 'black'
-      movingColor: toColor(window.chess),
-      pieceAtOrig: { role: 'pawn', color: toColor(window.chess) }, // {role:'pawn', color:'white'} например
-      // pieceAtDest: pieceOnDest, // опционально
+      pieceAtOrig, // <-- передаём реальную фигуру
       meta: { premove: false, ctrlKey: false },
     },
   );
+
   if (!isPromoting) playUserMove(orig, dest);
 };
 
