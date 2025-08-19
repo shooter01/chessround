@@ -72,7 +72,7 @@ function mountPromotionChoice({ root, dest, pieces, color, orientation, onFinish
   return { el: wrap, destroy };
 }
 
-function hidePromotionUI() {
+export function hidePromotionUI() {
   if (promotionHandle) {
     promotionHandle.destroy();
     promotionHandle = null;
@@ -83,7 +83,7 @@ function hidePromotionUI() {
 }
 
 // ===== bridge for promo.start hooks =====
-function showPromotionUI(ctrl, rolesOrFalse) {
+export function showPromotionUI(ctrl, rolesOrFalse) {
   if (rolesOrFalse === false) {
     hidePromotionUI();
     return;
