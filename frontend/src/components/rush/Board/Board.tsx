@@ -29,7 +29,7 @@ import './assets/theme.css';
 import './assets/3d.css';
 import './assets/examples.css';
 import { log } from '../chessground/units/lib/permalog';
-const initialZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom') || '100');
+const initialZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom') || '170');
 
 // const fen = '8/8/8/8/8/3k4/6p1/3K4 b - - 0 1';
 const fen = '4k3/8/3K2P1/8/8/8/8/8 w - - 0 1';
@@ -181,7 +181,18 @@ const Board: React.FC = () => {
       },
     });
     window.cg = cg;
-    setZoom(initialZoom);
+    const vpW =
+      document.documentElement.clientWidth ||
+      window.innerWidth ||
+      (window as any).visualViewport?.width ||
+      0;
+    if (vpW > 600) {
+      setZoom(initialZoom);
+    } else {
+      const boardEl = document.getElementById('dirty') as HTMLElement;
+      boardEl.style.width = `${vpW}px`;
+      boardEl.style.height = `${vpW}px`;
+    }
   }, []);
 
   return (
