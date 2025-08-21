@@ -24,7 +24,11 @@ function mountPromotionChoice({ root, dest, pieces, color, orientation, onFinish
   // remove previous
   board.querySelector('#promotion-choice')?.remove();
 
-  // left position (same formula as before)
+  // на всякий: чтобы абсолют позиционировался относительно доски
+  const cs = getComputedStyle(board);
+  if (cs.position === 'static') board.style.position = 'relative';
+
+  // left позиция
   let left = (7 - fileIndex(dest)) * 12.5;
   if (orientation === 'white') left = 87.5 - left;
 
@@ -33,29 +37,71 @@ function mountPromotionChoice({ root, dest, pieces, color, orientation, onFinish
   const wrap = document.createElement('div');
   wrap.id = 'promotion-choice';
   wrap.className = verticalClass;
-  wrap.style.left = left + '%';
+  // критично для мобилок: размеры, z-index и pointer-events
+  Object.assign(wrap.style, {
+    position: 'absolute',
+    top: '0',
+    bottom: '0',
+    left: left + '%',
+    width: '12.5%',
+    zIndex: '999', // выше любых слоёв доски
+    pointerEvents: 'auto',
+    touchAction: 'manipulation', // избавляемся от задержки тапа
+  });
 
-  // cancel on background click
+  // клик по фону — отмена
   const cancelHandler = (e) => {
+    e.preventDefault();
     e.stopPropagation();
     onCancel?.();
     destroy();
   };
+  // используем pointerup + click для надёжности
+  wrap.addEventListener('pointerup', cancelHandler);
   wrap.addEventListener('click', cancelHandler);
-  wrap.oncontextmenu = () => false;
 
   pieces.forEach((role, i) => {
-    const square = document.createElement('square');
+    // НЕ используем тег <square>, чтобы не поймать стили chessground
+    const square = document.createElement('div');
+    square.className = 'promo-square';
+
     const top = (color === orientation ? i : 7 - i) * 12.5;
-    square.setAttribute('style', 'top: ' + top + '%;');
+    Object.assign(square.style, {
+      position: 'absolute',
+      left: '0',
+      right: '0',
+      top: top + '%',
+      height: '12.5%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      pointerEvents: 'auto',
+      userSelect: 'none',
+      WebkitTapHighlightColor: 'transparent',
+    });
 
-    const pieceEl = document.createElement('piece');
-    pieceEl.className = `${role} ${color}`;
-
-    square.addEventListener('click', (e) => {
+    // перехватываем события до wrap
+    const select = (e) => {
+      e.preventDefault();
       e.stopPropagation();
       onFinish?.(role);
       destroy();
+    };
+
+    // pointer-события работают и с мышью, и с тачем
+    square.addEventListener('pointerdown', (e) => e.stopPropagation());
+    square.addEventListener('pointerup', select, { passive: false });
+    square.addEventListener('click', select);
+
+    // сам спрайт фигуры оставим как <piece>, но отключим его hit-test
+    const pieceEl = document.createElement('piece');
+    pieceEl.className = `${role} ${color}`;
+    Object.assign(pieceEl.style, {
+      width: '100%',
+      height: '100%',
+      pointerEvents: 'none', // кликаем по square, не по piece
+      backgroundSize: 'contain',
+      backgroundRepeat: 'no-repeat',
     });
 
     square.appendChild(pieceEl);
@@ -65,6 +111,7 @@ function mountPromotionChoice({ root, dest, pieces, color, orientation, onFinish
   board.appendChild(wrap);
 
   function destroy() {
+    wrap.removeEventListener('pointerup', cancelHandler);
     wrap.removeEventListener('click', cancelHandler);
     if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
   }
