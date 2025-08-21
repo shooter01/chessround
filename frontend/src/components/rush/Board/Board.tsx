@@ -190,8 +190,8 @@ const Board: React.FC = () => {
       setZoom(initialZoom);
     } else {
       const boardEl = document.getElementById('dirty') as HTMLElement;
-      boardEl.style.width = `${vpW}px`;
-      boardEl.style.height = `${vpW}px`;
+      boardEl.style.width = `${vpW - 60}px`;
+      boardEl.style.height = `${vpW - 60}px`;
     }
   }, []);
 
