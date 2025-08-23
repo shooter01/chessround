@@ -32,7 +32,7 @@ import { log } from '../chessground/units/lib/permalog';
 const initialZoom = parseFloat(localStorage.getItem('lichess-dev.cge.zoom') || '170');
 
 // const fen = '8/8/8/8/8/3k4/6p1/3K4 b - - 0 1';
-const fen = '4k3/8/3K2P1/8/8/8/8/8 w - - 0 1';
+const fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const orientation = 'white';
 
 configureSiteSound();
