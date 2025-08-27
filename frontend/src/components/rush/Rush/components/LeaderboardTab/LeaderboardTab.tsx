@@ -75,7 +75,7 @@ const LeaderboardTab: React.FC<LeaderboardTabProps> = ({ token }) => {
           <Select value={mode} label="Mode" onChange={onModeChange}>
             <MenuItem value="3m">3 Minutes</MenuItem>
             <MenuItem value="5m">5 Minutes</MenuItem>
-            <MenuItem value="survival">Survival</MenuItem>
+            <MenuItem value="survival">Marathon</MenuItem>
           </Select>
         </FormControl>
       </Stack>

@@ -33,7 +33,7 @@ export const resources = {
         correct: 'Correct',
       },
       rush: {
-        title: 'Chesscup',
+        title: 'Sprint',
         bestToday: 'Best Today',
         topScore: 'Top Score',
         playTab: 'Play',
@@ -50,7 +50,7 @@ export const resources = {
         times: {
           threeMin: '3 min',
           fiveMin: '5 min',
-          survival: 'Survival',
+          survival: 'Marathon',
         },
         selectTheme: 'Theme',
         selectRating: 'Rating',
@@ -76,7 +76,7 @@ export const resources = {
       puzzleSelector: {
         selectMode: 'Select Mode',
         modes: {
-          puzzle: 'Puzzle',
+          puzzle: 'Sprint',
           duel: 'Duel',
           tournament: 'Tournament',
         },
@@ -120,7 +120,7 @@ export const resources = {
         correct: 'Верно',
       },
       rush: {
-        title: 'Chesscup',
+        title: 'Спринт',
         bestToday: 'Лучшее сегодня',
         topScore: 'Топ-результат',
         playTab: 'Играть',
@@ -137,7 +137,7 @@ export const resources = {
         times: {
           threeMin: '3 мин',
           fiveMin: '5 мин',
-          survival: 'Выживание',
+          survival: 'Марафон',
         },
         selectTheme: 'Тема',
         selectRating: 'Рейтинг',
@@ -163,7 +163,7 @@ export const resources = {
       puzzleSelector: {
         selectMode: 'Выберите режим',
         modes: {
-          puzzle: 'Пазлы',
+          puzzle: 'Спринт',
           duel: 'Дуэль',
           tournament: 'Турнир',
         },
