@@ -82,7 +82,6 @@ const playUci = (uci: Uci, dest: string): void => {
     fen: chess.fen(),
     lastMove: [move.from, move.to],
     turnColor: toColor(window.chess),
-    lastMove: [move.from, move.to],
     check: window.chess.isCheck(),
     highlight: {
       check: true,

@@ -1,0 +1,23 @@
+{
+  "name": "presence-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "dev:docker": "nodemon --legacy-watch --exec tsx src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@socket.io/redis-adapter": "^8.2.0",
+    "express": "^4.19.2",
+    "ioredis": "^5.4.1",
+    "pg": "^8.16.3",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4",
+    "tsx": "^4.17.0",
+    "typescript": "^5.6.2"
+  }
+}
