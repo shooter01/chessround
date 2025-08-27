@@ -69,12 +69,15 @@ services:
       - REDIS_URL=redis://redis:6379
       - CORS_ORIGIN=http://localhost:3000
       - DATABASE_URL=postgres://keycloak:password@db:5432/keycloak
+      - BACKEND_BASE_URL=http://backend:5000      # <-- ВАЖНО
 
     volumes:
       - ./duel_server:/app
       - /app/node_modules
     depends_on:
       - redis
+      - backend                                   # <-- дождаться бэка
+
     command: ["npm","run","dev:docker"]
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]

@@ -4,6 +4,7 @@ import Board from '../Board/Board';
 import DuelLobby from './DuelLobby';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 // тип из DuelLobby
 type Friend = {
@@ -16,13 +17,26 @@ type Friend = {
 };
 
 type UserLite = { userId: string; name: string };
-
+type Search = {
+  id: number;
+  user_id: string;
+  username: string;
+  rating: number;
+  tc_seconds: number;
+  inc_seconds: number;
+  created_at: string;
+};
 const DuelModule: React.FC = () => {
   const socketRef = useRef<Socket | null>(null);
+  const [mySearchId, setMySearchId] = useState<number | null>(null);
+  const [online, setOnline] = useState<UserLite[]>([]);
+  const [searches, setSearches] = useState<Search[]>([]);
+
   const [friends, setFriends] = useState<Friend[]>([]);
   const { user, token } = useAuth(); // предполагается, что здесь есть ваш JWT
   console.log(user, token);
   const isGuest = !user;
+  const navigate = useNavigate();
 
   useEffect(() => {
     const url = import.meta.env.VITE_PRESENCE_WS_URL || 'http://localhost:8088';
@@ -44,37 +58,87 @@ const DuelModule: React.FC = () => {
       s.emit('lobby:join', { lobbyId: 'main' });
 
       // первичный снимок
-      s.emit('presence:list', null, (list: UserLite[]) => {
-        setFriends(list.map(toFriend));
-        console.log('online now:', list);
+      s.emit('presence:list', null, (list: UserLite[]) => setOnline(list));
+      s.emit('mm:list', { lobbyId: 'main' }, (snapshot?: { list: Search[] }) => {
+        if (snapshot?.list) setSearches(snapshot.list);
       });
     });
 
     // инкрементально обновляем список
-    s.on('presence:snapshot', (p: { list: UserLite[]; count: number }) => {
-      setFriends(p.list.map(toFriend));
-    });
+    s.on('presence:snapshot', (p: { list: UserLite[]; count: number }) => setOnline(p.list));
 
-    s.on('presence:join', (u: UserLite) => {
-      setFriends((prev) => (prev.some((x) => x.id === u.userId) ? prev : [...prev, toFriend(u)]));
-    });
+    s.on('presence:join', (u: UserLite) =>
+      setOnline((prev) => (prev.some((x) => x.userId === u.userId) ? prev : [...prev, u])),
+    );
 
-    s.on('presence:leave', (u: { userId: string }) => {
-      setFriends((prev) => prev.filter((x) => x.id !== u.userId));
-    });
+    s.on('presence:leave', (u: { userId: string }) =>
+      setOnline((prev) => prev.filter((x) => x.userId !== u.userId)),
+    );
 
     s.on('connect_error', (err) => {
       console.error('socket connect_error:', err.message, err);
     });
 
+    s.on('mm:snapshot', ({ list }: { list: Search[] }) => {
+      setSearches(list);
+    });
+    s.on('mm:open', ({ search }: { search: Search }) => {
+      setSearches((prev) => (prev.some((x) => x.id === search.id) ? prev : [...prev, search]));
+    });
+    s.on('mm:close', ({ userId }: { userId: string }) => {
+      setSearches((prev) => prev.filter((x) => x.user_id !== userId));
+      // если это мы сами — сбросим флаг «я ищу»
+      if (user?.id && userId === user.id) setMySearchId(null);
+    });
+
+    s.on('game:created', ({ shortId }: { shortId: string }) => {
+      setMySearchId(null);
+      navigate(`/duel/${shortId}`);
+    });
+
     return () => {
       try {
         s.emit('lobby:leave', { lobbyId: 'main' });
+        s.off('mm:snapshot');
+        s.off('mm:open');
+        s.off('mm:close');
+        s.off('game:created');
+
+        if (mySearchId) s.emit('queue:cancel', { lobbyId: 'main' });
       } finally {
         s.disconnect();
       }
     };
-  }, []);
+  }, [user?.id, user?.username, navigate]);
+
+  const handlePlay = () => {
+    if (isGuest) {
+      // покажи модалку логина
+      return;
+    }
+    socketRef.current?.emit(
+      'queue:start',
+      { lobbyId: 'main', tcSeconds: 180, incSeconds: 2 },
+      (res: any) => {
+        if (res?.ok) setMySearchId(res.searchId);
+        else console.warn('queue:start failed', res);
+      },
+    );
+  };
+
+  // принять чужую заявку
+  const acceptSearch = (searchId: number) => {
+    if (isGuest) return;
+    socketRef.current?.emit('queue:accept', { searchId }, (res: any) => {
+      if (res?.error) console.warn('accept failed', res);
+      // успех обработается в 'game:created'
+    });
+  };
+
+  // отмена поиска (если нужно)
+  const cancelPlay = () => {
+    socketRef.current?.emit('queue:cancel', { lobbyId: 'main' }, () => setMySearchId(null));
+  };
 
   return (
     <Container maxWidth="lg">

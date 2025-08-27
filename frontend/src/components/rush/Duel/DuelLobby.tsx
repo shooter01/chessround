@@ -6,10 +6,6 @@ import {
   Tabs,
   Tab,
   Divider,
-  TextField,
-  InputAdornment,
-  IconButton,
-  Button,
   Chip,
   Collapse,
   List,
@@ -18,9 +14,10 @@ import {
   Avatar,
   ListItemText,
   Tooltip,
+  Button,
+  Stack,
 } from '@mui/material';
 import ShieldIcon from '@mui/icons-material/Shield';
-import SearchIcon from '@mui/icons-material/Search';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CircleIcon from '@mui/icons-material/Circle';
@@ -36,34 +33,65 @@ export type Friend = {
 
 type Opponent = 'random' | Friend;
 
+export type Search = {
+  id: number;
+  user_id: string;
+  username: string;
+  rating: number;
+  tc_seconds: number;
+  inc_seconds: number;
+  created_at: string;
+};
+
 export interface DuelLobbyProps {
   rating?: number;
-  monthPoints?: number | null; // можно подать null -> покажет "--"
-  friends?: Friend[];
+  monthPoints?: number | null;
+  isGuest?: boolean;
+  friends?: Friend[]; // онлайн-список
+  searches?: Search[]; // открытые заявки «ищет игру»
+  mySearching?: boolean; // я сейчас ищу игру
+  selfId?: string; // текущий userId (для «You» и дизейбла Accept)
   loading?: boolean;
-  onPlay: (opponent: Opponent) => void;
+
+  // Play: в новом режиме всегда 'random' -> сохраним старую сигнатуру ради совместимости
+  onPlay: (opponent?: Opponent) => void;
+  onCancelSearch?: () => void; // отменить свой поиск
+  onAcceptSearch?: (searchId: number) => void;
+
   onTabChange?: (tab: 'play' | 'watch' | 'leaderboard') => void;
 }
 
 const fallbackFriends: Friend[] = [];
+const fallbackSearches: Search[] = [];
 
 const formatPoints = (v: number | null | undefined) =>
   v == null ? '--' : Intl.NumberFormat().format(v);
+
+const formatTC = (tc: number, inc: number) => `${Math.floor(tc / 60)}+${inc}`;
 
 const DuelLobby: React.FC<DuelLobbyProps> = ({
   rating = 1454,
   monthPoints = null,
   isGuest = true,
   friends = fallbackFriends,
+  searches = fallbackSearches,
+  mySearching = false,
+  selfId,
   loading = false,
   onPlay,
+  onCancelSearch,
+  onAcceptSearch,
   onTabChange,
 }) => {
   const [tab, setTab] = useState<'play' | 'watch' | 'leaderboard'>('play');
-  const [showFriends, setShowFriends] = useState(false);
-  const [opponent, setOpponent] = useState<Opponent>('random');
+  const [showOnline, setShowOnline] = useState(false);
 
   const online = useMemo(() => friends.filter((f) => f.online), [friends]);
+
+  const handlePlayClick = () => {
+    if (mySearching) onCancelSearch?.();
+    else onPlay('random');
+  };
 
   return (
     <Paper
@@ -128,72 +156,34 @@ const DuelLobby: React.FC<DuelLobbyProps> = ({
       </Tabs>
       <Divider sx={{ mb: 1.5 }} />
 
-      {/* Opponent search / selector */}
-      <TextField
-        fullWidth
-        size="small"
-        value={opponent === 'random' ? 'vs Random' : `vs ${opponent.name}`}
-        InputProps={{
-          readOnly: true,
-          endAdornment: (
-            <InputAdornment position="end">
-              <IconButton
-                size="small"
-                onClick={() => setShowFriends((v) => !v)}
-                aria-label="Choose opponent"
-              >
-                <SearchIcon />
-              </IconButton>
-            </InputAdornment>
-          ),
-        }}
-      />
-
-      {/* Friends online */}
-      <Box mt={0.75} display="flex" alignItems="center" gap={1}>
+      {/* Online summary + toggle */}
+      <Box mt={0.25} mb={1} display="flex" alignItems="center" gap={1}>
         <Chip
           size="small"
           icon={
             <ExpandMoreIcon
-              sx={{ transform: showFriends ? 'rotate(180deg)' : 'none', transition: '0.15s' }}
+              sx={{ transform: showOnline ? 'rotate(180deg)' : 'none', transition: '0.15s' }}
             />
           }
-          label={`${online.length} Friends Online`}
-          onClick={() => setShowFriends((v) => !v)}
+          label={`${online.length} Online`}
+          onClick={() => setShowOnline((v) => !v)}
           variant="outlined"
         />
-        {opponent !== 'random' && (
-          <Chip
-            size="small"
-            label="Random"
-            variant="filled"
-            onClick={() => setOpponent('random')}
-          />
-        )}
+        {mySearching && <Chip size="small" color="warning" label="Searching…" />}
       </Box>
 
-      <Collapse in={showFriends} unmountOnExit>
-        <List dense disablePadding sx={{ mt: 0.75, maxHeight: 220, overflowY: 'auto' }}>
+      {/* Online list (informational) */}
+      <Collapse in={showOnline} unmountOnExit>
+        <List dense disablePadding sx={{ mt: 0.5, maxHeight: 160, overflowY: 'auto' }}>
           {online.length === 0 && (
             <Typography variant="body2" color="text.secondary" sx={{ px: 1, py: 1 }}>
-              No friends online
+              No one online
             </Typography>
           )}
           {online.map((f) => (
-            <ListItem
-              key={f.id}
-              sx={{
-                borderRadius: 1,
-                px: 1,
-                '&:hover': { bgcolor: 'action.hover', cursor: 'pointer' },
-              }}
-              onClick={() => {
-                setOpponent(f);
-                setShowFriends(false);
-              }}
-            >
+            <ListItem key={f.id} sx={{ px: 1 }}>
               <ListItemAvatar>
-                <Avatar src={f.avatarUrl}>{f.name[0]}</Avatar>
+                <Avatar src={f.avatarUrl}>{f.name?.[0]}</Avatar>
               </ListItemAvatar>
               <ListItemText
                 primary={
@@ -208,25 +198,81 @@ const DuelLobby: React.FC<DuelLobbyProps> = ({
                 }
                 secondary={<Typography variant="caption">({f.rating})</Typography>}
               />
-              {f.flagUrl && <Avatar src={f.flagUrl} sx={{ width: 16, height: 16 }} />}
             </ListItem>
           ))}
         </List>
       </Collapse>
 
+      {/* Searches list */}
+      <Box mt={1}>
+        <Typography variant="overline" color="text.secondary">
+          Looking for a game
+        </Typography>
+        <List dense disablePadding sx={{ mt: 0.5, maxHeight: 220, overflowY: 'auto' }}>
+          {searches.length === 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ px: 1, py: 1 }}>
+              Nobody is searching yet
+            </Typography>
+          )}
+          {searches.map((s) => {
+            const isMe = selfId && s.user_id === selfId;
+            return (
+              <ListItem
+                key={s.id}
+                sx={{
+                  borderRadius: 1,
+                  px: 1,
+                  mb: 0.5,
+                  bgcolor: isMe ? 'action.selected' : 'transparent',
+                }}
+                secondaryAction={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip size="small" label={formatTC(s.tc_seconds, s.inc_seconds)} />
+                    {isMe ? (
+                      <Chip size="small" color="warning" label="You" />
+                    ) : (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        disabled={isGuest || loading}
+                        onClick={() => onAcceptSearch?.(s.id)}
+                      >
+                        Accept
+                      </Button>
+                    )}
+                  </Stack>
+                }
+              >
+                <ListItemAvatar>
+                  <Avatar>{s.username?.[0]?.toUpperCase()}</Avatar>
+                </ListItemAvatar>
+                <ListItemText
+                  primary={
+                    <Typography variant="body2" fontWeight={600}>
+                      {s.username}
+                    </Typography>
+                  }
+                  secondary={<Typography variant="caption">({s.rating})</Typography>}
+                />
+              </ListItem>
+            );
+          })}
+        </List>
+      </Box>
+
       <Box sx={{ flexGrow: 1 }} />
 
-      {/* Play button fixed to bottom of panel */}
+      {/* Play / Cancel button */}
       <Button
         size="large"
-        variant="contained"
-        color="success"
         fullWidth
-        disabled={loading || tab !== 'play' || isGuest}
         sx={{ borderRadius: 2, py: 1.25, fontWeight: 800 }}
-        onClick={() => onPlay(opponent)}
+        color={mySearching ? 'warning' : 'success'}
+        variant={mySearching ? 'outlined' : 'contained'}
+        disabled={loading || tab !== 'play' || isGuest}
+        onClick={handlePlayClick}
       >
-        {isGuest ? 'Login to play' : 'Play!'}
+        {isGuest ? 'Login to play' : mySearching ? 'Cancel search' : 'Play!'}
       </Button>
     </Paper>
   );

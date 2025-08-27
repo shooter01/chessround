@@ -5,6 +5,8 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import { Pool } from 'pg';
 import { Redis } from 'ioredis';
 import { randomUUID } from 'crypto';
+import axios from 'axios';
+
 import {
   waitRedisReady,
   withStartupLock,
@@ -23,6 +25,9 @@ const io = new Server(server, {
   pingInterval: 15000,
   pingTimeout: 25000,
 });
+const BACKEND_BASE_URL =
+  process.env.BACKEND_BASE_URL || 'http://localhost:5000';
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Redis для масштабирования и хранения онлайна
 const pub = new Redis(REDIS_URL);
@@ -92,13 +97,79 @@ function gatePlay(socket: any, cb?: Function): boolean {
   return true;
 }
 
+function tcToMode(tc: number): '3m' | '5m' | 'survival' {
+  if (tc >= 295 && tc <= 305) return '5m';
+  if (tc >= 175 && tc <= 185) return '3m';
+  return 'survival';
+}
+
+async function fetchAndSaveGamePuzzles(opts: {
+  gameId: string;
+  tcSeconds: number;
+  incSeconds: number;
+  rating?: number | null;
+  theme?: string | null;
+}) {
+  const mode = tcToMode(opts.tcSeconds);
+  const params: any = { mode };
+  if (opts.rating && opts.rating > 0) params.rating = opts.rating;
+  if (opts.theme) params.theme = opts.theme;
+
+  let data: any;
+  // до 5 попыток с бэкоффом
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      const resp = await axios.get(
+        `${BACKEND_BASE_URL}/puzzles/get`,
+        {
+          params,
+          headers: { Accept: 'application/json' },
+          timeout: 5000,
+        }
+      );
+      data = resp.data;
+      break;
+    } catch (e: any) {
+      if (attempt === 5) throw e;
+      await sleep(400 * attempt); // 400ms, 800ms, ...
+    }
+  }
+
+  const puzzlesPayload = data?.puzzles ?? null;
+  if (!puzzlesPayload)
+    throw new Error('puzzles/get returned empty payload');
+
+  await pool.query(
+    `UPDATE chesscup.duel_games SET puzzles = $1 WHERE id = $2`,
+    [puzzlesPayload, opts.gameId]
+  );
+
+  return {
+    puzzlesCount: Array.isArray(puzzlesPayload?.puzzles)
+      ? puzzlesPayload.puzzles.length
+      : null,
+  };
+}
+
 io.on('connection', (socket) => {
   const { userId, name } = getAuth(socket);
   socket.data.userId = userId;
   socket.data.name = name;
+  socket.data.isGuest = !socket.handshake.auth?.userId;
 
   // Храним в сокете список лобби, куда он вступил
   socket.data.lobbies = new Set<string>();
+
+  socket.join(`user:${userId}`);
+
+  socket.on(
+    'mm:list',
+    async ({ lobbyId }: { lobbyId: string }, cb?: Function) => {
+      if (!lobbyId) return cb?.({ list: [] });
+      const list = await getOpenSearches(lobbyId);
+      cb?.({ list });
+    }
+  );
 
   socket.on(
     'lobby:join',
@@ -121,6 +192,9 @@ io.on('connection', (socket) => {
 
       io.to(room).emit('presence:join', { userId, name });
       await emitPresenceSnapshot(lobbyId, room);
+      // отдать присоединившемуся стартовый список поиска игр
+      const mmList = await getOpenSearches(lobbyId);
+      socket.emit('mm:snapshot', { lobbyId, list: mmList });
     }
   );
 
@@ -239,7 +313,9 @@ io.on('connection', (socket) => {
     'queue:cancel',
     async (p: { lobbyId: string }, cb?: Function) => {
       if (!p?.lobbyId) return cb?.({ error: 'bad_request' });
-      const lobbyId = p.lobbyId;
+      const lobbyId =
+        p?.lobbyId ?? Array.from(socket.data.lobbies ?? [])[0];
+      if (!lobbyId) return cb?.({ error: 'not_in_lobby' });
       const userId = String(socket.data.userId);
 
       const upd = await pool.query(
@@ -266,8 +342,11 @@ io.on('connection', (socket) => {
   socket.on(
     'queue:accept',
     async (p: { searchId: number }, cb?: Function) => {
-      if (!Number.isFinite(p?.searchId))
+      const searchId = Number(p?.searchId);
+      if (!Number.isFinite(searchId)) {
+        console.warn('queue:accept bad payload', p);
         return cb?.({ error: 'bad_request' });
+      }
       if (socket.data?.isGuest)
         return cb?.({ error: 'GUEST_FORBIDDEN' });
 
@@ -278,13 +357,12 @@ io.on('connection', (socket) => {
       try {
         await client.query('BEGIN');
 
-        // жёстко лочим выбранную заявку, чтобы не было двойного принятия
         const lock = await client.query(
           `UPDATE chesscup.duel_searches
-            SET status = 'matched'
-          WHERE id = $1 AND status = 'open'
-          RETURNING id, lobby_id, user_id, username, rating, tc_seconds, inc_seconds`,
-          [p.searchId]
+         SET status = 'matched'
+       WHERE id = $1 AND status = 'open'
+       RETURNING id, lobby_id, user_id, username, rating, tc_seconds, inc_seconds`,
+          [searchId]
         );
         if (lock.rowCount === 0) {
           await client.query('ROLLBACK');
@@ -346,18 +424,35 @@ io.on('connection', (socket) => {
           userId: s.user_id,
         });
 
-        // обоим игрокам — событие «игра создана»
-        const roomW = [...io.of('/').sockets.values()]
-          .filter((sock) => sock.data?.userId === s.user_id)
-          .map((sock) => sock.id);
-        const roomB = [socket.id];
+        try {
+          const result = await fetchAndSaveGamePuzzles({
+            gameId: game.id,
+            tcSeconds: s.tc_seconds,
+            incSeconds: s.inc_seconds,
+            rating: s.rating ?? null,
+            // theme: <если добавите в duel_searches>,
+          });
+          console.log(
+            `[duel] puzzles saved for game ${game.id}, count=${
+              result.puzzlesCount ?? 'n/a'
+            }`
+          );
+        } catch (e) {
+          console.error(
+            '[duel] failed to fetch/save puzzles for game',
+            game.id,
+            e
+          );
+          // не блокируем создание игры — UI может сам запросить /puzzles/get при заходе в игру
+        }
 
-        io.to(roomW).emit('game:created', {
+        // стало: шлём в персональные комнаты
+        io.to(`user:${s.user_id}`).emit('game:created', {
           gameId: game.id,
           shortId: game.short_id,
           color: 'w',
         });
-        io.to(roomB).emit('game:created', {
+        io.to(`user:${acceptorId}`).emit('game:created', {
           gameId: game.id,
           shortId: game.short_id,
           color: 'b',

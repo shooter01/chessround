@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Box, Grid, Typography } from '@mui/material';
 import DuelModule from './Duel/DuelModule.tsx';
+import DuelGame from './Duel/DuelGame.tsx';
 import Main from './Main/Main.tsx';
 import TournamentModule from './Tournament/TournamentModule.tsx';
 import Rush from './Rush/Rush.tsx';
@@ -19,6 +20,7 @@ const RushModule: React.FC = () => {
       <Header />
       <Routes>
         <Route path="/duel" element={<DuelModule />} />
+        <Route path="/duel/:shortId" element={<DuelGame />} /> {/* <- добавили */}
         <Route path="/tournaments" element={<TournamentModule />} />
         <Route path="/tournaments/:slug" element={<TournamentResults />} />
         <Route path="/rush/*" element={<Rush />} />
