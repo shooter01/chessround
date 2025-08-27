@@ -84,6 +84,45 @@ async function broadcastMmSnapshot(lobbyId: string) {
   io.to(room).emit('mm:snapshot', { lobbyId, list });
 }
 
+type PlayerRow = {
+  user_id: string;
+  username: string;
+  color: 'w' | 'b';
+  rating_pre: number | null;
+};
+type GameRow = {
+  id: string;
+  short_id: string;
+  lobby_id: string;
+  status: string;
+  tc_seconds: number;
+  inc_seconds: number;
+  puzzles: any | null;
+};
+
+async function getGameByShortId(
+  shortId: string
+): Promise<GameRow | null> {
+  const { rows } = await pool.query<GameRow>(
+    `SELECT id, short_id, lobby_id, status, tc_seconds, inc_seconds, puzzles
+       FROM chesscup.duel_games
+      WHERE short_id = $1`,
+    [shortId]
+  );
+  return rows[0] ?? null;
+}
+
+async function getGamePlayers(gameId: string): Promise<PlayerRow[]> {
+  const { rows } = await pool.query<PlayerRow>(
+    `SELECT user_id, username, color, rating_pre
+       FROM chesscup.duel_game_players
+      WHERE game_id = $1
+      ORDER BY color ASC`,
+    [gameId]
+  );
+  return rows;
+}
+
 function gatePlay(socket: any, cb?: Function): boolean {
   if (socket.data?.isGuest) {
     const err = {
@@ -151,11 +190,40 @@ async function fetchAndSaveGamePuzzles(opts: {
   };
 }
 
+// рядом с остальными ключами
+const gameUserSocketsKey = (gameId: string, userId: string) =>
+  `game:${gameId}:user:${userId}:sockets`; // SET socketId
+
+async function setGamePresenceOn(
+  gameId: string,
+  userId: string,
+  socketId: string
+) {
+  await pub.sadd(gameUserSocketsKey(gameId, userId), socketId);
+}
+
+async function setGamePresenceOff(
+  gameId: string,
+  userId: string,
+  socketId: string
+) {
+  const k = gameUserSocketsKey(gameId, userId);
+  await pub.srem(k, socketId);
+  const left = await pub.scard(k);
+  if (left === 0) await pub.del(k);
+  return left; // сколько ещё сокетов у пользователя в этой игре
+}
+
+async function isPlayerOnlineInGame(gameId: string, userId: string) {
+  return (await pub.scard(gameUserSocketsKey(gameId, userId))) > 0;
+}
+
 io.on('connection', (socket) => {
   const { userId, name } = getAuth(socket);
   socket.data.userId = userId;
   socket.data.name = name;
   socket.data.isGuest = !socket.handshake.auth?.userId;
+  socket.data.watching = new Set<string>();
 
   // Храним в сокете список лобби, куда он вступил
   socket.data.lobbies = new Set<string>();
@@ -212,35 +280,59 @@ io.on('connection', (socket) => {
 
   // ВАЖНО: использовать 'disconnecting', а не 'disconnect'
   socket.on('disconnecting', async () => {
-    const userId = String(socket.data.userId || '');
-    if (!userId) return;
-    const lobbies: string[] = Array.from(socket.data.lobbies ?? []);
-    if (!lobbies.length) return;
+    const uid = String(socket.data.userId || '');
+    if (!uid) return;
 
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      for (const lobbyId of lobbies) {
-        const upd = await client.query(
-          `UPDATE chesscup.duel_searches
+    // 1) отменяем поиск в лобби (если есть), но БЕЗ return
+    const lobbies: string[] = Array.from(socket.data.lobbies ?? []);
+    if (lobbies.length) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        for (const lobbyId of lobbies) {
+          const upd = await client.query(
+            `UPDATE chesscup.duel_searches
               SET status = 'cancelled'
             WHERE lobby_id = $1 AND user_id = $2 AND status = 'open'
             RETURNING id`,
-          [lobbyId, userId]
-        );
-        if (upd.rowCount > 0) {
-          io.to(`lobby:${lobbyId}`).emit('mm:close', {
-            lobbyId,
-            userId,
+            [lobbyId, uid]
+          );
+          if (upd.rowCount > 0) {
+            io.to(`lobby:${lobbyId}`).emit('mm:close', {
+              lobbyId,
+              userId: uid,
+            });
+          }
+        }
+        await client.query('COMMIT');
+      } catch {
+        await client.query('ROLLBACK').catch(() => {});
+      } finally {
+        client.release();
+      }
+    }
+
+    // 2) ВСЕГДА чистим присутствие в играх
+    const watching: string[] = Array.from(socket.data.watching ?? []);
+    await Promise.all(
+      watching.map(async (gameId) => {
+        const left = await setGamePresenceOff(gameId, uid, socket.id);
+        const room = `game:${gameId}`;
+        if (left === 0) {
+          io.to(room).emit('game:user:online', {
+            gameId,
+            userId: uid,
+            online: false,
           });
         }
-      }
-      await client.query('COMMIT');
-    } catch {
-      await client.query('ROLLBACK').catch(() => {});
-    } finally {
-      client.release();
-    }
+        // минусуем текущий сокет из счётчика наблюдателей
+        const sockets = await io.in(room).fetchSockets();
+        io.to(room).emit('watchers:snapshot', {
+          gameId,
+          count: Math.max(0, sockets.length - 1),
+        });
+      })
+    );
   });
 
   socket.on(
@@ -467,6 +559,134 @@ io.on('connection', (socket) => {
       }
     }
   );
+  // join по shortId: вернём снапшот, присоединимся к комнате
+  socket.on(
+    'game:join',
+    async ({ shortId }: { shortId: string }, cb?: Function) => {
+      try {
+        if (!shortId) return cb?.({ error: 'bad_request' });
+        const game = await getGameByShortId(shortId);
+        if (!game) return cb?.({ error: 'not_found' });
+
+        const room = `game:${game.id}`;
+        socket.join(room);
+        socket.data.watching.add(game.id);
+
+        // роль сокета относительно этой партии
+        const players = await getGamePlayers(game.id);
+        const me = String(socket.data.userId || '');
+        const role: 'white' | 'black' | 'spectator' =
+          players.find((p) => p.user_id === me)?.color === 'w'
+            ? 'white'
+            : players.find((p) => p.user_id === me)?.color === 'b'
+            ? 'black'
+            : 'spectator';
+
+        // если пазлов ещё нет — подтянем и сохраним (не блокируем ошибкой)
+        if (!game.puzzles) {
+          try {
+            await fetchAndSaveGamePuzzles({
+              gameId: game.id,
+              tcSeconds: game.tc_seconds,
+              incSeconds: game.inc_seconds,
+              rating: null,
+              theme: null,
+            });
+            // перечитаем puzzles
+            const again = await getGameByShortId(shortId);
+            if (again?.puzzles) game.puzzles = again.puzzles;
+          } catch (e) {
+            console.error(
+              '[duel] game:join puzzles fetch failed for',
+              game.id,
+              e
+            );
+          }
+        }
+
+        // watchers count (по желанию)
+        const watchers = await io.in(room).fetchSockets();
+        const watchersCount = watchers.length;
+
+        await setGamePresenceOn(
+          game.id,
+          String(socket.data.userId),
+          socket.id
+        );
+
+        // вычислим онлайн игроков для снапшота
+        const playersOnline: Record<string, boolean> = {};
+        for (const p of players) {
+          playersOnline[p.user_id] = await isPlayerOnlineInGame(
+            game.id,
+            p.user_id
+          );
+        }
+
+        const snapshot = {
+          game: {
+            id: game.id,
+            short_id: game.short_id,
+            lobby_id: game.lobby_id,
+            status: game.status,
+            tc_seconds: game.tc_seconds,
+            inc_seconds: game.inc_seconds,
+          },
+          players,
+          role,
+          puzzles: game.puzzles ?? null,
+          watchersCount,
+          playersOnline, // 👈 добавили
+        };
+
+        // ответ только этому сокету
+        cb?.({ ok: true, snapshot });
+
+        // разошлём актуальный счётчик зрителей всем в комнате
+        io.to(room).emit('watchers:snapshot', {
+          gameId: game.id,
+          count: watchersCount,
+        });
+        io.to(room).emit('game:user:online', {
+          gameId: game.id,
+          userId: String(socket.data.userId),
+          online: true,
+        });
+      } catch (e) {
+        console.error('game:join error', e);
+        cb?.({ error: 'server_error' });
+      }
+    }
+  );
+
+  // lеave (по желанию, можно вызывать при размонтировании)
+  socket.on(
+    'game:leave',
+    async ({ shortId }: { shortId: string }) => {
+      const game = await getGameByShortId(shortId);
+      if (!game) return;
+      const room = `game:${game.id}`;
+      socket.leave(room);
+      socket.data.watching.delete(game.id);
+      const watchers = await io.in(room).fetchSockets();
+      io.to(room).emit('watchers:snapshot', {
+        gameId: game.id,
+        count: watchers.length,
+      });
+      const left = await setGamePresenceOff(
+        game.id,
+        String(socket.data.userId),
+        socket.id
+      );
+      if (left === 0) {
+        io.to(room).emit('game:user:online', {
+          gameId: game.id,
+          userId: String(socket.data.userId),
+          online: false,
+        });
+      }
+    }
+  );
 });
 
 // async function removeSocketFromLobby(
@@ -542,10 +762,10 @@ app.get('/healthz', (_req, res) => res.send('ok'));
 
 (async () => {
   await waitRedisReady(pub);
-  // одноразовая очистка всего presence-неймспейса при старте
-  await withStartupLock(pub, () =>
-    purgePresenceNamespace(pub, 'lobby:*')
-  );
+  await withStartupLock(pub, async () => {
+    await purgePresenceNamespace(pub, 'lobby:*');
+    await purgePresenceNamespace(pub, 'game:*'); // <— чтобы убрать зависшие game:<id>:user:<uid>:sockets
+  });
 
   server.listen(PORT, () => {
     console.log(`presence server on :${PORT}`);
