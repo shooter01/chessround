@@ -7,8 +7,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import Board from '../Board/Board';
 import ResultBattleUser, { BattleUserProps } from './components/BattleUser/ResultBattleUser';
 import CurrentPuzzle from '../Rush/current/current';
+// + NEW:
+import PuzzleFaceitCard, { PuzzleFaceitInfo } from './components/PuzzleFaceitCard';
 
-// ------- ГЛОБАЛЬНЫЕ БЕЗОПАСНЫЕ ЗАГЛУШКИ (чтобы userMoves.ts не падал до маунта) -------
 declare global {
   interface Window {
     puzzlesCounter: number;
@@ -24,16 +25,17 @@ declare global {
     addCorrectPuzzle?: (current: any, result: boolean) => Promise<void> | void;
   }
 }
+
+// безопасные заглушки — чтобы userMoves.ts не падал до монтирования
 if (typeof window !== 'undefined') {
-  if (typeof window.setCorrect !== 'function') window.setCorrect = async () => {};
-  if (typeof window.setNextPuzzle !== 'function') window.setNextPuzzle = () => {};
-  if (typeof window.addCorrectPuzzle !== 'function') window.addCorrectPuzzle = async () => {};
+  window.setCorrect ??= async () => {};
+  window.setNextPuzzle ??= () => {};
+  window.addCorrectPuzzle ??= async () => {};
+  window.puzzlesCounter ??= -1;
+  window.currentPuzzlesMoves ??= [];
 }
 
-// ---------------------------------------------------------------------------------------
-
 type Effort = { id: string; result: boolean };
-
 const CENTER_W = 48;
 const WS_URL = import.meta.env.VITE_PRESENCE_WS_URL || 'http://localhost:8088';
 
@@ -77,9 +79,48 @@ function toBattleUserProps(p?: PlayerRow, isOnline?: boolean): BattleUserProps {
 }
 
 const DuelGameModule: React.FC = () => {
+  const pickTheme = (p: any) => {
+    // lichess puzzles обычно: themes: "fork doubleCheck" | массив
+    if (!p) return null;
+    const t = Array.isArray(p.themes)
+      ? p.themes[0]
+      : typeof p.themes === 'string'
+        ? p.themes.split(' ')[0]
+        : null;
+    return t || null;
+  };
+  const refreshFaceitInfo = (idx: number) => {
+    const list = puzzlesListRef.current;
+    if (!list || !list[idx]) return;
+
+    const p = list[idx];
+    const id = String(p.puzzle_id ?? p.id ?? idx);
+    const rating = typeof p.rating === 'number' ? p.rating : null;
+
+    // активный цвет из FEN (первый ход — компьютер; пользователь играет ПРОТИВОПОЛОЖНЫМ цветом)
+    let userSide: 'W' | 'B' = 'W';
+    try {
+      const parts = String(p.fen).split(' ');
+      const active = parts[1] === 'w' ? 'W' : 'B';
+      userSide = active === 'W' ? 'B' : 'W';
+    } catch {}
+
+    // длина решения: берём половину списка ходов (сколько делает пользователь)
+    const movesCount = typeof p.moves === 'string' ? p.moves.trim().split(/\s+/).length : 0;
+    const mv = Math.floor(movesCount / 2);
+
+    const theme = pickTheme(p);
+    const popularity = typeof p.popularity === 'number' ? p.popularity : null;
+
+    const myEff = effortsMap[myUserId] ?? [];
+    const last: ('W' | 'L')[] = myEff.slice(-5).map((e) => (e.result ? 'W' : 'L'));
+
+    setFaceitInfo({ id, rating, mv, side: userSide, theme, popularity, last });
+  };
   const { shortId } = useParams();
   const { user } = useAuth();
   const myUserId = user?.id ?? '';
+  const [faceitInfo, setFaceitInfo] = useState<PuzzleFaceitInfo | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
 
@@ -89,9 +130,12 @@ const DuelGameModule: React.FC = () => {
   const [effortsMap, setEffortsMap] = useState<Record<string, Effort[]>>({});
   const [currentIndex, setCurrentIndex] = useState<Record<string, number>>({});
 
+  // список пазлов для матча
   const puzzlesListRef = useRef<any[] | null>(null);
+  // какой индекс уже инициализирован (чтобы не дублировать setPosition/playComputerMove)
+  const initedIdxRef = useRef<number | null>(null);
 
-  // ---------- стабильные ссылки на реализацию API, к которым проксируются window.* ----------
+  // API, которое подсовываем в window.*
   const apiRef = useRef<{
     setCorrect: (ok: boolean) => Promise<void>;
     setNextPuzzle: () => void;
@@ -102,14 +146,16 @@ const DuelGameModule: React.FC = () => {
     addCorrectPuzzle: async () => {},
   });
 
-  // Привязываем window.* к прокси-обёрткам ОДИН РАЗ — они всегда вызовут актуальные функции из apiRef
+  // прокинем window.* на реальные реализации
   useLayoutEffect(() => {
     window.setCorrect = async (isCorrect: boolean) => apiRef.current.setCorrect(isCorrect);
+    // ⚠️ в дуэли локально НЕ шагаем вперёд — только по серверу
     window.setNextPuzzle = () => apiRef.current.setNextPuzzle();
     window.addCorrectPuzzle = (current: any, result: boolean) =>
       apiRef.current.addCorrectPuzzle(current, result);
   }, []);
 
+  // вытаскиваем массив пазлов из payload (как в rush)
   const extractList = (payload: any): any[] | null => {
     if (!payload) return null;
     if (Array.isArray(payload)) return payload;
@@ -118,44 +164,75 @@ const DuelGameModule: React.FC = () => {
     return null;
   };
 
+  // ставим доску на конкретный индекс
   const setBoardToIndex = (idx: number) => {
+    if (idx == null || idx < 0) return;
+    if (initedIdxRef.current === idx) return;
+
     const list = puzzlesListRef.current;
     if (!list || !list[idx]) return;
+
+    initedIdxRef.current = idx;
 
     window.cg?.setAutoShapes?.([]);
     window.currentPuzzlesMoves = [];
     window.puzzlesCounter = idx;
 
     const p = list[idx];
+
     window.currentPuzzle = new CurrentPuzzle(idx, p);
     window.currentPuzzle.startFen = p.fen;
 
-    window.chess?.load?.(p.fen);
-    if (typeof window.setPosition === 'function') window.setPosition();
+    try {
+      window.chess?.load?.(p.fen);
+    } catch {}
+
+    try {
+      const pov = (window.currentPuzzle?.pov ?? 'white') as 'white' | 'black';
+      window.cg?.set?.({ orientation: pov });
+      window.setPosition?.();
+    } catch {}
+
+    // + NEW: обновляем карточку
+    refreshFaceitInfo(idx);
 
     setTimeout(() => {
-      if (typeof window.playComputerMove === 'function') window.playComputerMove();
-    }, 300);
+      try {
+        window.playComputerMove?.();
+      } catch {}
+    }, 250);
   };
 
+  useEffect(() => {
+    if (faceitInfo && puzzlesListRef.current) {
+      const idx = initedIdxRef.current ?? 0;
+      const myEff = effortsMap[myUserId] ?? [];
+      const last = myEff.slice(-5).map((e) => (e.result ? 'W' : 'L')) as ('W' | 'L')[];
+      setFaceitInfo({ ...faceitInfo, last });
+    }
+  }, [effortsMap[myUserId]]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // первичная инициализация пазлов + прогресса
   const bootstrapWithProgress = (puzzlesPayload: any, s?: Snapshot) => {
-    const list = extractList(puzzlesPayload);
-    if (!list || !list.length) return;
-    puzzlesListRef.current = list;
+    if (!puzzlesListRef.current) {
+      const list = extractList(puzzlesPayload);
+      if (list && list.length) puzzlesListRef.current = list;
+    }
+    if (!puzzlesListRef.current?.length) return;
 
     const myIdx =
       s?.currentIndex && typeof s.currentIndex[myUserId] === 'number'
         ? s.currentIndex[myUserId]!
         : 0;
 
-    if (window.puzzlesCounter !== myIdx) setBoardToIndex(myIdx);
+    setBoardToIndex(myIdx);
 
     if (s?.scores) setScores((prev) => ({ ...prev, ...s.scores }));
     if (s?.efforts) setEffortsMap((prev) => ({ ...prev, ...s.efforts }));
     if (s?.currentIndex) setCurrentIndex((prev) => ({ ...prev, ...s.currentIndex }));
   };
 
-  // ---------- Реальные реализации API кладём в apiRef после маунта ----------
+  // Реализации API для window.* (теперь без локального инкремента)
   useEffect(() => {
     apiRef.current.addCorrectPuzzle = async (current, result) => {
       try {
@@ -168,19 +245,17 @@ const DuelGameModule: React.FC = () => {
           return { ...prev, [me]: mine };
         });
       } catch {
-        // no-op
+        // ignore
       }
     };
 
+    // ❌ Локально вперёд не двигаемся — ждём server ACK/stream
     apiRef.current.setNextPuzzle = () => {
-      const list = puzzlesListRef.current;
-      if (!list) return;
-      const next = (window.puzzlesCounter ?? -1) + 1;
-      if (next >= list.length) return;
-      setBoardToIndex(next);
+      /* no-op in duel mode */
     };
 
     apiRef.current.setCorrect = async (isCorrect: boolean) => {
+      // оптимистично покажем очко
       if (isCorrect) {
         setScores((prev) => ({ ...prev, [myUserId]: (prev[myUserId] ?? 0) + 1 }));
       }
@@ -200,8 +275,11 @@ const DuelGameModule: React.FC = () => {
               if (typeof res.scoreMine === 'number') {
                 setScores((prev) => ({ ...prev, [myUserId]: res.scoreMine! }));
               }
+              // если сервер сразу прислал следующий индекс — ставим доску на него
               if (typeof res.nextIdx === 'number' && puzzlesListRef.current) {
-                if (window.puzzlesCounter !== res.nextIdx) setBoardToIndex(res.nextIdx);
+                if (initedIdxRef.current !== res.nextIdx) {
+                  setBoardToIndex(res.nextIdx);
+                }
               }
             }
           },
@@ -212,7 +290,7 @@ const DuelGameModule: React.FC = () => {
     };
   }, [myUserId, shortId]);
 
-  // ---------- socket ----------
+  // socket
   useEffect(() => {
     const s = io(WS_URL, {
       transports: ['websocket', 'polling'],
@@ -237,8 +315,11 @@ const DuelGameModule: React.FC = () => {
       );
     });
 
+    // пазлы могут приехать отдельно при обновлении страницы
     s.on('game:puzzles', ({ puzzles }: { gameId: string; puzzles: any }) => {
-      bootstrapWithProgress(puzzles, snap || undefined);
+      if (!puzzlesListRef.current?.length) {
+        bootstrapWithProgress(puzzles, snap || undefined);
+      }
     });
 
     s.on(
@@ -261,8 +342,12 @@ const DuelGameModule: React.FC = () => {
         if (st.currentIndex) {
           setCurrentIndex((prev) => ({ ...prev, ...st.currentIndex }));
           const nextIdx = st.currentIndex[myUserId];
-          if (typeof nextIdx === 'number' && puzzlesListRef.current) {
-            if (window.puzzlesCounter !== nextIdx) setBoardToIndex(nextIdx);
+          if (
+            typeof nextIdx === 'number' &&
+            puzzlesListRef.current &&
+            nextIdx !== initedIdxRef.current
+          ) {
+            setBoardToIndex(nextIdx);
           }
         }
       },
@@ -278,10 +363,9 @@ const DuelGameModule: React.FC = () => {
         s.disconnect();
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shortId, user?.id, user?.username]);
+  }, [shortId, user?.id, user?.username]); // snap намеренно не включаем
 
-  // ---------- UI ----------
+  // UI
   const white = useMemo(() => snap?.players.find((p) => p.color === 'w'), [snap]);
   const black = useMemo(() => snap?.players.find((p) => p.color === 'b'), [snap]);
 
@@ -326,6 +410,7 @@ const DuelGameModule: React.FC = () => {
         {/* Правая панель: две карточки игроков */}
         <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: 'center' }}>
           <Box sx={{ width: '100%' }}>
+            {/* верхний ряд — 2 карточки игроков + центр с контролем */}
             <Box
               sx={{
                 display: 'flex',
@@ -335,12 +420,10 @@ const DuelGameModule: React.FC = () => {
                 overflow: 'hidden',
               }}
             >
-              {/* Белые */}
               <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
                 <ResultBattleUser {...leftProps} dense />
               </Box>
 
-              {/* Центр: тайм-контроль */}
               <Box
                 sx={{
                   flex: `0 0 ${CENTER_W}px`,
@@ -355,11 +438,17 @@ const DuelGameModule: React.FC = () => {
                 </Typography>
               </Box>
 
-              {/* Чёрные */}
               <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
                 <ResultBattleUser {...rightProps} dense />
               </Box>
             </Box>
+
+            {/* НИЖЕ: карточка текущего пазла в стиле Faceit */}
+            {faceitInfo && (
+              <Box sx={{ mt: 1.25 }}>
+                <PuzzleFaceitCard {...faceitInfo} />
+              </Box>
+            )}
           </Box>
         </Grid>
       </Grid>

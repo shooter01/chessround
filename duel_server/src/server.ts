@@ -97,6 +97,25 @@ type ProgressMap = {
   efforts: Record<string, EffortItem[]>;
 };
 
+function normalizeEffortsMap(
+  efforts: Record<string, any[]>
+): Record<string, any[]> {
+  const out: Record<string, any[]> = {};
+  for (const uid of Object.keys(efforts)) {
+    const list = Array.isArray(efforts[uid]) ? efforts[uid] : [];
+    out[uid] = list.map((e) => {
+      const ok =
+        typeof e.result === 'boolean' ? e.result : !!e.correct;
+      return {
+        ...e,
+        result: ok, // гарантируем наличие result
+        correct: ok, // и correct держим в синхроне
+      };
+    });
+  }
+  return out;
+}
+
 async function findPuzzleIndexByFen(gameId: string, fen: string) {
   const { rows } = await pool.query(
     `SELECT puzzles FROM chesscup.duel_games WHERE id = $1`,
@@ -118,41 +137,70 @@ async function findPuzzleIndexByFen(gameId: string, fen: string) {
   return { idx, pid };
 }
 
-function toEffortJSONB(
-  idx: number,
-  pid: string,
-  fen: string,
-  correct: boolean
-) {
-  // строим jsonb одним выражением в SQL (см. ниже)
-  return { idx, pid, fen, correct };
+function extractPuzzleList(payload: any): any[] {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.puzzles)) return payload.puzzles;
+  if (Array.isArray(payload?.puzzles?.puzzles))
+    return payload.puzzles.puzzles;
+  return [];
 }
 
-async function buildProgressFromPlayers(
-  gameId: string
-): Promise<ProgressMap> {
-  const { rows } = await pool.query(
+async function findPuzzleIndexByFenOrId(
+  gameId: string,
+  opts: { fen?: string; puzzleId?: string }
+): Promise<{ idx: number; pid: string | null }> {
+  const { rows } = await pool.query<{ puzzles: any }>(
+    `SELECT puzzles FROM chesscup.duel_games WHERE id = $1`,
+    [gameId]
+  );
+  const list = extractPuzzleList(rows[0]?.puzzles);
+  if (!list.length) return { idx: -1, pid: null };
+
+  if (opts.puzzleId) {
+    const i = list.findIndex(
+      (p) => String(p?.puzzle_id ?? p?.id) === String(opts.puzzleId)
+    );
+    if (i >= 0)
+      return {
+        idx: i,
+        pid: String(list[i]?.puzzle_id ?? list[i]?.id ?? i),
+      };
+  }
+  if (opts.fen) {
+    const i = list.findIndex(
+      (p) => String(p?.fen) === String(opts.fen)
+    );
+    if (i >= 0)
+      return {
+        idx: i,
+        pid: String(list[i]?.puzzle_id ?? list[i]?.id ?? i),
+      };
+  }
+  return { idx: -1, pid: null };
+}
+
+async function buildProgressFromPlayers(gameId: string) {
+  const { rows } = await pool.query<{
+    user_id: string;
+    points: number | null;
+    efforts: any[] | null;
+  }>(
     `SELECT user_id, points, efforts
        FROM chesscup.duel_game_players
       WHERE game_id = $1`,
     [gameId]
   );
-
-  const progress: ProgressMap = {
-    scores: {},
-    currentIndex: {},
-    efforts: {},
-  };
+  const scores: Record<string, number> = {};
+  const currentIndex: Record<string, number> = {};
+  const efforts: Record<string, any[]> = {};
   for (const r of rows) {
-    const uid = r.user_id as string;
-    const effArr: EffortItem[] = Array.isArray(r.efforts)
-      ? r.efforts
-      : [];
-    progress.scores[uid] = Number(r.points ?? 0);
-    progress.currentIndex[uid] = effArr.length;
-    progress.efforts[uid] = effArr;
+    const arr = Array.isArray(r.efforts) ? r.efforts : [];
+    scores[r.user_id] = Number(r.points ?? 0);
+    currentIndex[r.user_id] = arr.length;
+    efforts[r.user_id] = arr;
   }
-  return progress;
+  return { scores, currentIndex, efforts };
 }
 
 type PlayerRow = {
@@ -683,15 +731,16 @@ io.on('connection', (socket) => {
             // перечитаем puzzles
             const again = await getGameByShortId(shortId);
             if (again?.puzzles) game.puzzles = again.puzzles;
-          } catch {
+          } catch (e) {
             console.error(
               '[duel] game:join puzzles fetch failed for',
-              game.id
+              game.id,
+              e
             );
           }
         }
 
-        // watchers count (по желанию)
+        // watchers count
         const watchers = await io.in(room).fetchSockets();
         const watchersCount = watchers.length;
 
@@ -701,7 +750,7 @@ io.on('connection', (socket) => {
           socket.id
         );
 
-        // вычислим онлайн игроков для снапшота
+        // онлайн игроков
         const playersOnline: Record<string, boolean> = {};
         for (const p of players) {
           playersOnline[p.user_id] = await isPlayerOnlineInGame(
@@ -710,19 +759,44 @@ io.on('connection', (socket) => {
           );
         }
 
-        // прогресс в снапшоте (карты userId -> value)
+        // прогресс из duel_game_players: points + efforts + вычисленный current_index
+        type ProgressRow = {
+          user_id: string;
+          points: number | null;
+          efforts: any[] | null;
+          current_index: number;
+        };
+        const progQ = await pool.query<ProgressRow>(
+          `
+        SELECT
+          user_id,
+          points,
+          efforts,
+          COALESCE(jsonb_array_length(efforts), 0) AS current_index
+        FROM chesscup.duel_game_players
+        WHERE game_id = $1
+        `,
+          [game.id]
+        );
+
         const scores: Record<string, number> = {};
         const effortsMap: Record<string, any[]> = {};
-        for (const p of players) {
-          scores[p.user_id] = p.points ?? 0;
-          effortsMap[p.user_id] = Array.isArray(p.efforts)
-            ? p.efforts
+        const currentIndex: Record<string, number> = {};
+        for (const r of progQ.rows) {
+          scores[r.user_id] = Number(r.points ?? 0);
+          effortsMap[r.user_id] = Array.isArray(r.efforts)
+            ? r.efforts
             : [];
+          currentIndex[r.user_id] = Number(r.current_index ?? 0);
         }
+        const normalizedEfforts = normalizeEffortsMap(effortsMap);
 
+        // снапшот только этому сокету
         cb?.({
           ok: true,
           snapshot: {
+            efforts: normalizedEfforts,
+
             game: {
               id: game.id,
               short_id: game.short_id,
@@ -736,11 +810,13 @@ io.on('connection', (socket) => {
             puzzles: game.puzzles ?? null,
             watchersCount,
             playersOnline,
-            scores, // 👈
-            efforts: effortsMap, // 👈
+            scores,
+            currentIndex,
+            efforts: effortsMap,
           },
         });
 
+        // широковещательно — обновлённое число зрителей и онлайн флаг
         io.to(room).emit('watchers:snapshot', {
           gameId: game.id,
           count: watchersCount,
@@ -751,15 +827,13 @@ io.on('connection', (socket) => {
           online: true,
         });
 
-        // ДОПОЛНИТЕЛЬНО: отдать пазлы только этому сокету (повторный вход/обновление)
+        // дополнительно отдать пазлы этому сокету (на случай обновления страницы)
         if (game.puzzles) {
           io.to(socket.id).emit('game:puzzles', {
             gameId: game.id,
             puzzles: game.puzzles,
           });
         } else {
-          // если пазлы подтянули только что — мы их выше сохранили, перечитали в again
-          // и здесь тоже шлём
           const again = await getGameByShortId(shortId);
           if (again?.puzzles) {
             io.to(socket.id).emit('game:puzzles', {
@@ -768,8 +842,8 @@ io.on('connection', (socket) => {
             });
           }
         }
-      } catch {
-        console.error('game:join error');
+      } catch (e) {
+        console.error('game:join error', e);
         cb?.({ error: 'server_error' });
       }
     }
@@ -795,42 +869,117 @@ io.on('connection', (socket) => {
         if (!game) return cb?.({ error: 'not_found' });
 
         // проверяем, что игрок в этой партии
-        const { rows: rowsCheck } = await pool.query(
+        const { rowCount: inGame } = await pool.query(
           `SELECT 1 FROM chesscup.duel_game_players WHERE game_id = $1 AND user_id = $2`,
           [game.id, me]
         );
-        if (rowsCheck.length === 0)
-          return cb?.({ error: 'forbidden' });
+        if (!inGame) return cb?.({ error: 'forbidden' });
 
-        const effort = [
-          {
-            id: p.puzzleId ?? (p.fen || String(Date.now())),
-            result: !!p.correct,
-          },
-        ];
+        // находим индекс пазла по fen или puzzleId
+        const { idx, pid } = await findPuzzleIndexByFenOrId(game.id, {
+          fen: p.fen,
+          puzzleId: p.puzzleId,
+        });
+        if (idx < 0 || !pid)
+          return cb?.({ error: 'puzzle_not_found' });
 
-        // +1 очко за правильный
-        const delta = p.correct ? 1 : 0;
+        // строго boolean
+        const isCorrect = p.correct === true;
 
-        const upd = await pool.query(
+        // на всякий приводим efforts к массиву (если когда-то были плохие данные)
+        await pool.query(
           `UPDATE chesscup.duel_game_players
-            SET points  = points + $1,
-                efforts = COALESCE(efforts, '[]'::jsonb) || $2::jsonb
-          WHERE game_id = $3 AND user_id = $4
-          RETURNING points, efforts`,
-          [delta, JSON.stringify(effort), game.id, me]
+            SET efforts = CASE
+                            WHEN efforts IS NULL OR jsonb_typeof(efforts) <> 'array'
+                              THEN '[]'::jsonb
+                            ELSE efforts
+                          END
+          WHERE game_id = $1 AND user_id = $2`,
+          [game.id, me]
         );
-        const myPoints = upd.rows[0]?.points ?? 0;
-        const myEfforts = upd.rows[0]?.efforts ?? [];
 
-        // рассылаем в комнату только дельту моего прогресса
+        // атомарный апдейт с явными кастами параметров
+        const upd = await pool.query<{
+          points: number;
+          efforts: any[];
+          inserted: boolean;
+        }>(
+          `
+        WITH locked AS (
+          SELECT points,
+                 COALESCE(
+                   CASE WHEN efforts IS NULL OR jsonb_typeof(efforts) <> 'array'
+                        THEN '[]'::jsonb ELSE efforts END,
+                   '[]'::jsonb
+                 ) AS efforts
+            FROM chesscup.duel_game_players
+           WHERE game_id = $1 AND user_id = $2
+           FOR UPDATE
+        ),
+        exists_idx AS (
+          SELECT EXISTS (
+            SELECT 1
+              FROM jsonb_array_elements((SELECT efforts FROM locked)) e
+             WHERE (e->>'idx')::int = $3::int
+          ) AS has
+        ),
+        new_efforts AS (
+          SELECT CASE
+                   WHEN (SELECT has FROM exists_idx)
+                     THEN (SELECT efforts FROM locked)
+                   ELSE (SELECT efforts FROM locked) ||
+                        jsonb_build_array(
+                          jsonb_build_object(
+                            'idx',     $3::int,
+                            'pid',     $4::text,
+                            'fen',     $5::text,
+                            'correct', $6::boolean,
+                            'result',  $6::boolean, 
+                            'at',      now()::text
+                          )
+                        )
+                 END AS efforts,
+                 (NOT (SELECT has FROM exists_idx)) AS inserted
+        ),
+        updated AS (
+          UPDATE chesscup.duel_game_players d
+             SET efforts = (SELECT efforts FROM new_efforts),
+                 points  = d.points
+                           + CASE WHEN $6::boolean AND (SELECT inserted FROM new_efforts)
+                                  THEN 1 ELSE 0 END
+           WHERE d.game_id = $1 AND d.user_id = $2
+           RETURNING d.points, d.efforts
+        )
+        SELECT u.points, u.efforts, (SELECT inserted FROM new_efforts) AS inserted
+          FROM updated u
+        `,
+          [
+            game.id,
+            me,
+            idx,
+            String(pid),
+            String(p.fen ?? ''),
+            isCorrect,
+          ]
+        );
+
+        if (!upd.rowCount) return cb?.({ error: 'update_failed' });
+
+        // соберём свежий прогресс и разошлём всем
+        const progress = await buildProgressFromPlayers(game.id);
         io.to(`game:${game.id}`).emit('game:state', {
           gameId: game.id,
-          scores: { [me]: myPoints },
-          efforts: { [me]: myEfforts },
+          scores: progress.scores,
+          currentIndex: progress.currentIndex,
+          efforts: normalizeEffortsMap(progress.efforts),
         });
 
-        cb?.({ ok: true, scoreMine: myPoints });
+        cb?.({
+          ok: true,
+          scoreMine: progress.scores[me] ?? 0,
+          nextIdx: progress.currentIndex[me] ?? 0,
+          inserted: upd.rows[0].inserted,
+        });
       } catch (e) {
         console.error('game:solve error', e);
         cb?.({ error: 'server_error' });
