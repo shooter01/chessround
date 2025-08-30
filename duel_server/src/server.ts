@@ -525,32 +525,44 @@ io.on('connection', (socket) => {
   socket.on(
     'queue:cancel',
     async (p: { lobbyId: string }, cb?: Function) => {
-      if (!p?.lobbyId) return cb?.({ error: 'bad_request' });
       const lobbyId =
         p?.lobbyId ?? Array.from(socket.data.lobbies ?? [])[0];
       if (!lobbyId) return cb?.({ error: 'not_in_lobby' });
+
       const userId = String(socket.data.userId);
 
-      const upd = await pool.query(
-        `UPDATE chesscup.duel_searches
-          SET status = 'cancelled'
-        WHERE lobby_id = $1 AND user_id = $2 AND status = 'open'
-        RETURNING id`,
-        [lobbyId, userId]
-      );
+      try {
+        const upd = await pool.query(
+          `UPDATE chesscup.duel_searches
+           SET status = 'cancelled'
+         WHERE lobby_id = $1 AND user_id = $2 AND status = 'open'
+         RETURNING id`,
+          [lobbyId, userId]
+        );
 
-      if (upd.rowCount > 0) {
-        io.to(`lobby:${lobbyId}`).emit('mm:close', {
-          lobbyId,
-          userId,
-        });
-        cb?.({ ok: true });
-      } else {
-        cb?.({ ok: true, already: true });
+        if (upd.rowCount > 0) {
+          const searchId = upd.rows[0].id;
+          console.log(
+            `[mm] cancel by ${userId} in lobby ${lobbyId}, searchId=${searchId}`
+          );
+
+          // ширим событие с userId И searchId — клиенту удобнее чистить
+          io.to(`lobby:${lobbyId}`).emit('mm:close', {
+            lobbyId,
+            userId,
+            searchId,
+          });
+
+          cb?.({ ok: true });
+        } else {
+          cb?.({ ok: true, already: true });
+        }
+      } catch (e) {
+        console.error('queue:cancel error', e);
+        cb?.({ error: 'server_error' });
       }
     }
   );
-
   // принять чужую заявку (создать игру)
   socket.on(
     'queue:accept',
@@ -619,7 +631,7 @@ io.on('connection', (socket) => {
             s.rating,
             acceptorId,
             acceptorName,
-            socket.data.rating ?? 1500,
+            socket.data.rating,
           ]
         );
 

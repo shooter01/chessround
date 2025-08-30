@@ -69,7 +69,7 @@ function toBattleUserProps(p?: PlayerRow, isOnline?: boolean): BattleUserProps {
     user_name: p?.username ?? 'Unknown',
     errors_array: [],
     player_online: isOnline ?? true,
-    rating: p?.rating_pre ?? 1500,
+    rating: p?.rating_pre ?? 0,
     country: undefined,
     countries: {},
     image: '',

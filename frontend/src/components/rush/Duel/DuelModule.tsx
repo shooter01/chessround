@@ -47,13 +47,6 @@ const DuelModule: React.FC = () => {
     });
     socketRef.current = s;
 
-    const toFriend = (u: UserLite) => ({
-      id: u.userId,
-      name: u.name,
-      rating: 1500,
-      online: true,
-    });
-
     s.on('connect', () => {
       s.emit('lobby:join', { lobbyId: 'main' });
 
@@ -85,9 +78,12 @@ const DuelModule: React.FC = () => {
     s.on('mm:open', ({ search }: { search: Search }) => {
       setSearches((prev) => (prev.some((x) => x.id === search.id) ? prev : [...prev, search]));
     });
-    s.on('mm:close', ({ userId }: { userId: string }) => {
-      setSearches((prev) => prev.filter((x) => x.user_id !== userId));
-      // если это мы сами — сбросим флаг «я ищу»
+    s.on('mm:close', ({ userId, searchId }: { userId: string; searchId?: number }) => {
+      setSearches((prev) =>
+        searchId != null
+          ? prev.filter((x) => x.id !== searchId)
+          : prev.filter((x) => x.user_id !== userId),
+      );
       if (user?.id && userId === user.id) setMySearchId(null);
     });
 
@@ -137,7 +133,20 @@ const DuelModule: React.FC = () => {
 
   // отмена поиска (если нужно)
   const cancelPlay = () => {
-    socketRef.current?.emit('queue:cancel', { lobbyId: 'main' }, () => setMySearchId(null));
+    // 1) мгновенно чистим у себя
+    if (user?.id) {
+      setSearches((prev) => prev.filter((s) => s.user_id !== user.id));
+    }
+    setMySearchId(null);
+
+    // 2) шлём на сервер; ACK только логируем
+    socketRef.current?.emit('queue:cancel', { lobbyId: 'main' }, (res: any) => {
+      if (res?.error) {
+        console.warn('queue:cancel failed', res);
+        // при желании можно откатить локальные изменения:
+        // refetch mm:list или вернуть mySearchId
+      }
+    });
   };
 
   return (
@@ -159,20 +168,21 @@ const DuelModule: React.FC = () => {
         <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: 'center' }}>
           <Box sx={{ width: '100%' }}>
             <DuelLobby
-              rating={user?.perfs?.blitz?.rating ?? 1600}
+              // rating={user?.perfs?.blitz?.rating ?? 1600}
               isGuest={isGuest}
               monthPoints={null}
               friends={online.map((u) => ({
                 id: u.userId,
                 name: u.name,
-                rating: 1500,
+                // rating: 1500,
                 online: true,
                 // если хочешь показать индикатор «Ищет игру»
                 searching: searches.some((s) => s.user_id === u.userId),
               }))}
+              selfId={user?.id} // ← чтобы подсвечивать "You"
               loading={false}
-              onPlay={() => (mySearchId ? cancelPlay() : handlePlay())}
-              onAcceptSearch={acceptSearch} // добавь такой проп в DuelLobby (кнопка «Принять» рядом с тем, кто ищет)
+              onPlay={() => handlePlay()} // ← только старт
+              onCancelSearch={cancelPlay} // ← вот это главное!              onAcceptSearch={acceptSearch} // добавь такой проп в DuelLobby (кнопка «Принять» рядом с тем, кто ищет)
               mySearching={!!mySearchId} // чтобы кнопка Play менялась на «Отменить»
               searches={searches} // можно отрисовать отдельным списком «Ищут игру»
             />

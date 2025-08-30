@@ -89,8 +89,12 @@ const DuelLobby: React.FC<DuelLobbyProps> = ({
   const online = useMemo(() => friends.filter((f) => f.online), [friends]);
 
   const handlePlayClick = () => {
-    if (mySearching) onCancelSearch?.();
-    else onPlay('random');
+    if (mySearching) {
+      if (onCancelSearch) onCancelSearch();
+      else onPlay('random'); // back-compat: если родитель не дал onCancelSearch
+    } else {
+      onPlay('random');
+    }
   };
 
   return (
@@ -234,7 +238,7 @@ const DuelLobby: React.FC<DuelLobbyProps> = ({
                       <Button
                         size="small"
                         variant="contained"
-                        disabled={isGuest || loading}
+                        disabled={loading || tab !== 'play' || isGuest}
                         onClick={() => onAcceptSearch?.(s.id)}
                       >
                         Accept
