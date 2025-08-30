@@ -101,8 +101,8 @@ router.get('/get', async (req, res) => {
   try {
     const puzzles = await fetchPuzzles();
     return res.json({ puzzles, session_id: null });
-  } catch (err) {
-    console.error('Error in /puzzles/get (public):', err);
+  } catch {
+    console.error('Error in /puzzles/get (public):');
     return res.status(502).json({
       error: 'Failed to fetch puzzles from external service.',
     });
