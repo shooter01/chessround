@@ -155,6 +155,34 @@ const DuelGameModule: React.FC = () => {
       apiRef.current.addCorrectPuzzle(current, result);
   }, []);
 
+  useLayoutEffect(() => {
+    window.emitPly = (uci: string, fen: string) => apiRef.current.emitPly(uci, fen);
+  }, []);
+
+  useEffect(() => {
+    apiRef.current.emitPly = (uci: string, fen: string) => {
+      const idx = typeof window.puzzlesCounter === 'number' ? window.puzzlesCounter : 0;
+      const userId = myUserId || '';
+      socketRef.current?.emit('game:ply', { shortId, userId, idx, uci, fen });
+    };
+  }, [myUserId, shortId]);
+
+  useEffect(() => {
+    // прокидываем глобальный хук, чтобы userMoves.ts мог дернуть
+    (window as any).onDuelPly = (ev: { uci: string; fen: string; idx: number }) => {
+      if (!shortId) return;
+      socketRef.current?.emit('game:ply', {
+        shortId,
+        idx: Number(ev.idx),
+        uci: String(ev.uci),
+        fen: String(ev.fen),
+      });
+    };
+    return () => {
+      (window as any).onDuelPly = undefined;
+    };
+  }, [shortId]);
+
   // вытаскиваем массив пазлов из payload (как в rush)
   const extractList = (payload: any): any[] | null => {
     if (!payload) return null;

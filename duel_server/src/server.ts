@@ -84,6 +84,58 @@ async function broadcastMmSnapshot(lobbyId: string) {
   io.to(room).emit('mm:snapshot', { lobbyId, list });
 }
 
+// ==== Redis live keys (вверху файла рядом с остальными ключами) ====
+const liveKey = (gameId: string, userId: string) =>
+  `game:${gameId}:live:${userId}`;
+
+// сохранить полуход в live-состоянии
+async function saveLivePly(
+  gameId: string,
+  userId: string,
+  data: { idx: number; uci: string; fen: string }
+) {
+  const key = liveKey(gameId, userId);
+  // храним JSON { idx, fen, seq: [uci,...], updatedAt }
+  const prev = await pub.get(key);
+  let state: any = {
+    idx: data.idx,
+    fen: data.fen,
+    seq: [],
+    updatedAt: Date.now(),
+  };
+  if (prev) {
+    try {
+      state = JSON.parse(prev);
+    } catch {}
+  }
+  // если пришёл новый индекс — начинаем новую последовательность
+  if (typeof state.idx !== 'number' || state.idx !== data.idx) {
+    state = {
+      idx: data.idx,
+      fen: data.fen,
+      seq: [],
+      updatedAt: Date.now(),
+    };
+  }
+  state.seq = Array.isArray(state.seq)
+    ? [...state.seq, data.uci]
+    : [data.uci];
+  state.fen = data.fen;
+  state.updatedAt = Date.now();
+  await pub.set(key, JSON.stringify(state), 'EX', 60 * 60 * 6); // TTL 6h
+  return state;
+}
+
+async function readLiveState(gameId: string, userId: string) {
+  const raw = await pub.get(liveKey(gameId, userId));
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 type EffortItem = {
   idx: number;
   pid: string;
@@ -272,7 +324,9 @@ async function fetchAndSaveGamePuzzles(opts: {
 }) {
   const mode = tcToMode(opts.tcSeconds);
   const params: any = { mode };
-  if (opts.rating && opts.rating > 0) params.rating = opts.rating;
+  if ([1500, 2000, 2500].includes(Number(opts.rating))) {
+    params.rating = Number(opts.rating);
+  }
   if (opts.theme) params.theme = opts.theme;
 
   let data: any;
@@ -350,6 +404,49 @@ io.on('connection', (socket) => {
   socket.data.lobbies = new Set<string>();
 
   socket.join(`user:${userId}`);
+
+  socket.on(
+    'game:ply',
+    async (
+      p: { shortId: string; idx: number; uci: string; fen: string },
+      cb?: Function
+    ) => {
+      try {
+        const me = String(socket.data.userId || '');
+        if (!me) return cb?.({ error: 'unauthorized' });
+
+        const game = await getGameByShortId(p.shortId);
+        if (!game) return cb?.({ error: 'not_found' });
+
+        // Разрешаем только игрокам этой партии
+        const { rows } = await pool.query(
+          `SELECT 1 FROM chesscup.duel_game_players WHERE game_id = $1 AND user_id = $2`,
+          [game.id, me]
+        );
+        if (!rows.length) return cb?.({ error: 'forbidden' });
+
+        // Сохраним live-состояние и ретранслируем в комнату
+        const state = await saveLivePly(game.id, me, {
+          idx: Number(p.idx),
+          uci: String(p.uci),
+          fen: String(p.fen),
+        });
+
+        io.to(`game:${game.id}`).emit('game:ply', {
+          gameId: game.id,
+          userId: me,
+          idx: state.idx,
+          uci: p.uci,
+          fen: state.fen,
+        });
+
+        cb?.({ ok: true });
+      } catch (e) {
+        console.error('game:ply error', e);
+        cb?.({ error: 'server_error' });
+      }
+    }
+  );
 
   socket.on(
     'mm:list',
@@ -654,7 +751,7 @@ io.on('connection', (socket) => {
             gameId: game.id,
             tcSeconds: s.tc_seconds,
             incSeconds: s.inc_seconds,
-            rating: s.rating ?? null,
+            // rating: s.rating ?? null,
             // theme: <если добавите в duel_searches>,
           });
           console.log(
@@ -803,6 +900,11 @@ io.on('connection', (socket) => {
         }
         const normalizedEfforts = normalizeEffortsMap(effortsMap);
 
+        const live: Record<string, any> = {};
+        for (const p of players) {
+          live[p.user_id] = await readLiveState(game.id, p.user_id);
+        }
+
         // снапшот только этому сокету
         cb?.({
           ok: true,
@@ -820,6 +922,7 @@ io.on('connection', (socket) => {
             players,
             role,
             puzzles: game.puzzles ?? null,
+            live,
             watchersCount,
             playersOnline,
             scores,

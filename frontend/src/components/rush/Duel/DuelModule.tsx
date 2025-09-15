@@ -125,9 +125,13 @@ const DuelModule: React.FC = () => {
   // принять чужую заявку
   const acceptSearch = (searchId: number) => {
     if (isGuest) return;
+    console.log('[ui] accept search', searchId);
     socketRef.current?.emit('queue:accept', { searchId }, (res: any) => {
-      if (res?.error) console.warn('accept failed', res);
-      // успех обработается в 'game:created'
+      if (res?.error) {
+        console.warn('accept failed', res);
+        return;
+      }
+      // успех придёт также как событие 'game:created'
     });
   };
 
@@ -181,6 +185,7 @@ const DuelModule: React.FC = () => {
               }))}
               selfId={user?.id} // ← чтобы подсвечивать "You"
               loading={false}
+              onAcceptSearch={acceptSearch} // 👈 пробрасываем обработчик
               onPlay={() => handlePlay()} // ← только старт
               onCancelSearch={cancelPlay} // ← вот это главное!              onAcceptSearch={acceptSearch} // добавь такой проп в DuelLobby (кнопка «Принять» рядом с тем, кто ищет)
               mySearching={!!mySearchId} // чтобы кнопка Play менялась на «Отменить»

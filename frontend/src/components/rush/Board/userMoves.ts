@@ -88,6 +88,12 @@ const playUci = (uci: Uci, dest: string): void => {
     },
   });
 
+  try {
+    const fenNow = window.chess.fen();
+    const idxNow = window.puzzlesCounter ?? 0;
+    window.onDuelPly && window.onDuelPly({ uci, fen: fenNow, idx: idxNow });
+  } catch {}
+
   if (!window.promoting) {
     window.cg.setAutoShapes([{ orig: dest, customSvg: glyphToSvg[sign] }]);
     window.currentPuzzle.moveIndex++;

@@ -101,35 +101,52 @@ function eventPosition(e): [number, number] | undefined {
   return;
 }
 
-window.playComputerMove = (orig: Key, dest: Key): void => {
+window.playComputerMove = (): void => {
   setTimeout(() => {
-    const move = window.chess.move(currentPuzzle.expectedMove());
-    window.currentPuzzlesMoves.push(move.lan);
+    try {
+      // ожидаемый ход компьютера в формате UCI (например "e7e5", "a2a1q")
+      const compUci: string = window.currentPuzzle.expectedMove();
 
-    window.cg.set({
-      fen: window.chess.fen(),
-      turnColor: toColor(window.chess),
-      premovable: {
-        enabled: true,
-      },
-      movable: {
-        free: false,
-        color: currentPuzzle.pov,
-        dests: toDests(window.chess),
-      },
-    });
+      // применяем ход в движке (у тебя уже работало с UCI)
+      const move = window.chess.move(compUci); // { from, to, promotion?, captured? ... }
 
-    window.setPosition([move.from, move.to]);
+      // важное: сохраняем UCI, а не SAN/LAN
+      window.currentPuzzlesMoves.push(compUci);
 
-    if (move.captured) {
-      site.sound.play(`capture`, parseFloat(localStorage.getItem('app-volume-factor') || '1'));
-    } else {
-      site.sound.play(`move`, parseFloat(localStorage.getItem('app-volume-factor') || '1'));
+      // обновляем позицию на доске
+      window.cg.set({
+        fen: window.chess.fen(),
+        turnColor: toColor(window.chess),
+        premovable: { enabled: true },
+        movable: {
+          free: false,
+          color: window.currentPuzzle.pov, // ходит игрок той стороны, которая указана в пазле
+          dests: toDests(window.chess),
+        },
+      });
+
+      // подсветка последнего хода
+      window.setPosition([move.from, move.to]);
+
+      // отдать ход зрителям (и сохранить live-состояние на сервере)
+      if (typeof window.emitPly === 'function') {
+        const fenNow = window.chess.fen();
+        const idxNow = typeof window.puzzlesCounter === 'number' ? window.puzzlesCounter : 0;
+        window.emitPly(compUci, fenNow); // сервер сам знает shortId/userId из DuelGameModule
+      }
+
+      // звуки
+      const vol = parseFloat(localStorage.getItem('app-volume-factor') || '1');
+      site.sound.play(move.captured ? 'capture' : 'move', vol);
+
+      // инкремент шага в пазле
+      window.currentPuzzle.moveIndex++;
+
+      // вдруг была поставлена premove игроком
+      window.cg.playPremove();
+    } catch (e) {
+      console.warn('playComputerMove failed', e);
     }
-
-    currentPuzzle.moveIndex++;
-    cg.playPremove();
-    // if (san.includes('+')) sounds.push(`${prefix}Check`);
   }, 300);
 };
 
