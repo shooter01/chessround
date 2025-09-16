@@ -50,7 +50,7 @@ export default function PuzzleSelector() {
   const [modalOpen, setModalOpen] = useState(false);
 
   const handleClick = (mode: Mode, path: string) => {
-    if (mode === 'puzzle') {
+    if (mode === 'puzzle' || mode === 'duel') {
       navigate(path);
     } else {
       setModalOpen(true);

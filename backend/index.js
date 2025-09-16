@@ -8,6 +8,7 @@ const api = require('./routes/api'); // Убедитесь, что путь ко
 const lichess_auth = require('./routes/lichess_auth'); // Убедитесь, что путь корректный
 const puzzles = require('./routes/puzzles'); // Убедитесь, что путь корректный
 const leaderboard = require('./routes/leaderboard');
+const tournaments = require('./routes/tournaments');
 
 const cookieParser = require('cookie-parser');
 
@@ -62,6 +63,7 @@ app.use('/api', api);
 app.use('/lichess_auth', lichess_auth);
 app.use('/puzzles', puzzles);
 app.use('/leaderboard', leaderboard);
+app.use('/tournaments', tournaments);
 
 // Запуск сервера
 app.listen(PORT, () => {
