@@ -1,195 +1,360 @@
-import React from 'react';
+// src/components/rush/Tournament/TournamentDetails.tsx
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Box,
-  Button,
+  Paper,
+  Stack,
   Typography,
   Chip,
-  TableContainer,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  Paper,
-  useTheme,
+  Button,
   Divider,
+  Avatar,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  IconButton,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
+import PeopleIcon from '@mui/icons-material/People';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import TimerIcon from '@mui/icons-material/Timer';
 import { useNavigate, useParams } from 'react-router-dom';
+import axios from 'axios';
+import { useAuth } from '../../../../contexts/AuthContext.tsx';
+import { API_BASE } from '@api/api';
 
-interface PlayerResult {
-  place: number;
-  slug: string;
-  username: string;
-  flag: string;
-  scores: number[];
-  points: number;
-  time: number;
+interface Participant {
+  user_id: number;
+  user_name: string;
+  joined_at: string;
 }
 
-const mockRound = {
-  players: [5, 5],
-  status: 'Completed',
-  description: 'Mate in 2',
-};
+interface ApiTournamentDetails {
+  id: number;
+  slug: string;
+  title: string;
+  description: string;
+  status: 'active' | 'upcoming';
+  isStarted: boolean;
+  isOver: boolean;
+  currentRound: number;
+  maxRounds: number;
+  startAt: string; // ISO
+  nextRoundAt: string | null; // ISO | null
+  roundGapSec: number;
+  puzzlesPerRound: number;
+  timePerPuzzleSec: number;
+  participantsCount: number;
+  ownerId: number | null;
+  ownerName: string | null;
+  leagueId: string | null;
+  leagueName: string | null;
+  isParticipant: boolean;
+  participants: Participant[];
+}
 
-const mockResults: PlayerResult[] = [
-  {
-    place: 1,
-    slug: 'endspiel-610',
-    username: 'PacoMcasi',
-    flag: '🇧🇬',
-    scores: [29, 27, 27, 26, 19],
-    points: 128,
-    time: 538,
-  },
-  {
-    place: 2,
-    slug: 'mofg-124',
-    username: 'MOFG',
-    flag: '🇲🇽',
-    scores: [26, 28, 27, 22, 21],
-    points: 124,
-    time: 538,
-  },
-];
+function formatDate(iso?: string | null, tz?: string) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: tz,
+  }).format(d);
+}
 
-export default function TournamentResults() {
-  const theme = useTheme();
+function formatCountdown(targetIso?: string | null): string {
+  if (!targetIso) return '';
+  const target = new Date(targetIso).getTime();
+  const now = Date.now();
+  let diff = Math.max(0, target - now);
+  const h = Math.floor(diff / 3600000);
+  diff -= h * 3600000;
+  const m = Math.floor(diff / 60000);
+  diff -= m * 60000;
+  const s = Math.floor(diff / 1000);
+  if (h > 0) return `${h}ч ${m}м ${s.toString().padStart(2, '0')}с`;
+  return `${m}м ${s.toString().padStart(2, '0')}с`;
+}
+
+export default function TournamentDetails() {
+  const { slug = '' } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { slug } = useParams<{ slug: string }>();
+  const { token } = useAuth(); // ← источник Bearer
+
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [t, setT] = useState<ApiTournamentDetails | null>(null);
+  const [countdown, setCountdown] = useState<string>('');
+  const [joining, setJoining] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const { data } = await axios.get<ApiTournamentDetails>(
+        `${API_BASE}/tournaments/${encodeURIComponent(slug)}`,
+        {
+          headers: {
+            Accept: 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          withCredentials: true,
+        },
+      );
+      setT(data);
+    } catch (e: any) {
+      setErr(e?.response?.data?.error || e?.message || 'Ошибка загрузки');
+    } finally {
+      setLoading(false);
+    }
+  }, [slug, token]);
+
+  useEffect(() => {
+    if (slug) refresh();
+  }, [slug, refresh]);
+
+  // Обновляем таймер раз в секунду
+  useEffect(() => {
+    if (!t) return;
+    const target = t.isStarted ? t.nextRoundAt : t.startAt;
+    if (!target) return;
+    setCountdown(formatCountdown(target));
+    const id = setInterval(() => setCountdown(formatCountdown(target)), 1000);
+    return () => clearInterval(id);
+  }, [t]);
+
+  const handleJoin = useCallback(async () => {
+    if (!t) return;
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+    setJoining(true);
+    setErr(null);
+    try {
+      const { data } = await axios.post(
+        `${API_BASE}/tournaments/${encodeURIComponent(t.slug)}/join`,
+        {},
+        {
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          withCredentials: true,
+        },
+      );
+      if (!data?.ok) throw new Error(data?.error || 'Ошибка вступления');
+      await refresh();
+    } catch (e: any) {
+      if (e?.response?.status === 401) {
+        navigate('/login');
+        return;
+      }
+      setErr(e?.response?.data?.error || e?.message || 'Не удалось вступить');
+    } finally {
+      setJoining(false);
+    }
+  }, [t, token, navigate, refresh]);
+
+  const handleLeave = useCallback(async () => {
+    if (!t) return;
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+    setLeaving(true);
+    setErr(null);
+    try {
+      const { data } = await axios.post(
+        `${API_BASE}/tournaments/${encodeURIComponent(t.slug)}/leave`,
+        {},
+        {
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          withCredentials: true,
+        },
+      );
+      if (!data?.ok) throw new Error(data?.error || 'Ошибка выхода');
+      await refresh();
+    } catch (e: any) {
+      if (e?.response?.status === 401) {
+        navigate('/login');
+        return;
+      }
+      setErr(e?.response?.data?.error || e?.message || 'Не удалось выйти');
+    } finally {
+      setLeaving(false);
+    }
+  }, [t, token, navigate, refresh]);
+
+  if (loading)
+    return (
+      <Box sx={{ maxWidth: 900, mx: 'auto', p: 2 }}>
+        <CircularProgress />
+      </Box>
+    );
+
+  if (err)
+    return (
+      <Box sx={{ maxWidth: 900, mx: 'auto', p: 2 }}>
+        <Button startIcon={<ArrowBackIosNewIcon />} onClick={() => navigate(-1)}>
+          Назад
+        </Button>
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {err}
+        </Alert>
+      </Box>
+    );
+
+  if (!t) return null;
+
+  const statusChip =
+    t.status === 'active' ? (
+      <Chip color="success" label="Идёт" size="small" />
+    ) : t.isOver ? (
+      <Chip color="default" label="Завершён" size="small" />
+    ) : (
+      <Chip color="warning" label="Скоро" size="small" />
+    );
 
   return (
-    <Box sx={{ maxWidth: 800, mx: 'auto', p: 2, fontFamily: 'Arial, sans-serif' }}>
-      {/* Green Header */}
-      <Box
-        sx={{
-          bgcolor: 'success.main',
-          color: 'common.white',
-          borderRadius: 1,
-          px: 2,
-          py: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <EmojiEventsIcon sx={{ mr: 1 }} />
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          Puzzle Tournaments
+    <Box sx={{ maxWidth: 900, mx: 'auto', p: 2 }}>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+        <IconButton onClick={() => navigate(-1)}>
+          <ArrowBackIosNewIcon />
+        </IconButton>
+        <Typography variant="h5" fontWeight={700}>
+          {t.title}
         </Typography>
-      </Box>
+        <Box flexGrow={1} />
+        {statusChip}
+      </Stack>
 
-      {/* Full-width Back Button */}
-      <Box sx={{ mt: 2, mb: 2 }}>
-        <Button
-          fullWidth
-          startIcon={<ArrowBackIosNewIcon />}
-          onClick={() => navigate('/rush/tournaments')}
-          variant="outlined"
-        >
-          BACK TO TOURNAMENTS
-        </Button>
-      </Box>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction="row" spacing={3} alignItems="center" flexWrap="wrap">
+          <Stack direction="row" spacing={1} alignItems="center">
+            <PeopleIcon />
+            <Typography>{t.participantsCount}</Typography>
+          </Stack>
 
-      {/* Round Bar */}
-      {/* Round / status bar */}
-      <Box
-        sx={{
-          bgcolor: 'common.white', // white background
-          px: 2,
-          py: 1,
-          borderRadius: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          mb: 2,
-          boxShadow: 1,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.dark' }}>
-            Round:
-          </Typography>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <CalendarTodayIcon />
+            <Typography>{formatDate(t.startAt)}</Typography>
+          </Stack>
 
-          {/* green-filled chip */}
-          <Chip
-            label="5 vs 5"
-            size="small"
-            sx={{
-              bgcolor: 'success.main',
-              color: 'common.white',
-              fontWeight: 600,
-            }}
-          />
+          <Stack direction="row" spacing={1} alignItems="center">
+            <TimerIcon />
+            <Typography>
+              {t.isStarted && !t.isOver ? (
+                t.currentRound < t.maxRounds ? (
+                  <>
+                    След. раунд через: <b>{countdown}</b>
+                  </>
+                ) : (
+                  'Последний раунд'
+                )
+              ) : (
+                <>
+                  Старт через: <b>{countdown}</b>
+                </>
+              )}
+            </Typography>
+          </Stack>
 
-          {/* green-outlined chip */}
-          <Chip
-            label="Completed"
-            size="small"
-            variant="outlined"
-            sx={{
-              borderColor: 'success.main',
-              color: 'success.main',
-              fontWeight: 600,
-            }}
-          />
-        </Box>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <SportsEsportsIcon />
+            <Typography>
+              Раундов: {t.maxRounds} • Пазлов/раунд: {t.puzzlesPerRound} • {t.timePerPuzzleSec}
+              s/пазл
+            </Typography>
+          </Stack>
 
-        <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.dark' }}>
-          Mate in 2
-        </Typography>
-      </Box>
+          {!!t.leagueId && t.leagueId !== 'noleague' && (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <EmojiEventsIcon />
+              <Typography>Лига: {t.leagueName}</Typography>
+            </Stack>
+          )}
 
-      <Divider />
+          <Box flexGrow={1} />
 
-      {/* Results Table */}
-      <TableContainer component={Paper} sx={{ mt: 2 }}>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ bgcolor: 'grey.100' }}>
-              <TableCell>Place</TableCell>
-              <TableCell>Player</TableCell>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <TableCell key={n} align="right">
-                  {n}
-                </TableCell>
-              ))}
-              <TableCell align="right">Points</TableCell>
-              <TableCell align="right">Time</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {mockResults.map((r) => (
-              <TableRow
-                key={r.slug}
-                hover
-                sx={{
-                  '&:nth-of-type(odd)': { bgcolor: 'grey.50' },
-                  cursor: 'pointer',
-                }}
-                onClick={() => navigate(`/rush/tournaments/${r.slug}`)}
+          {!t.isOver &&
+            (t.isParticipant ? (
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={handleLeave}
+                disabled={leaving || joining}
               >
-                <TableCell>#{r.place}</TableCell>
-                <TableCell>
-                  <Typography component="span" sx={{ fontWeight: 600, mr: 1 }}>
-                    {r.username}
-                  </Typography>
-                  <span>{r.flag}</span>
-                </TableCell>
-                {r.scores.map((s, i) => (
-                  <TableCell key={i} align="right">
-                    {s}
-                  </TableCell>
-                ))}
-                <TableCell align="right">{r.points}</TableCell>
-                <TableCell align="right">{r.time}</TableCell>
-              </TableRow>
+                {leaving ? 'Выходим…' : 'Выйти'}
+              </Button>
+            ) : (
+              <Button variant="contained" onClick={handleJoin} disabled={joining || leaving}>
+                {joining ? 'Входим…' : 'Войти'}
+              </Button>
             ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+        </Stack>
+
+        {t.isStarted && (
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Раунд:{' '}
+            <b>
+              {t.currentRound}/{t.maxRounds}
+            </b>
+          </Typography>
+        )}
+
+        {t.description && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="body2" color="text.secondary">
+              Тематика: {t.description}
+            </Typography>
+          </>
+        )}
+      </Paper>
+
+      <Paper sx={{ p: 2 }}>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+          <PeopleIcon />
+          <Typography variant="h6">Участники</Typography>
+          <Typography variant="body2" color="text.secondary">
+            ({t.participantsCount})
+          </Typography>
+        </Stack>
+        {t.participants.length === 0 ? (
+          <Typography color="text.secondary">Пока никто не вступил.</Typography>
+        ) : (
+          <List dense>
+            {t.participants.map((p) => (
+              <ListItem key={`${p.user_id}-${p.joined_at}`} disableGutters>
+                <ListItemAvatar>
+                  <Avatar>
+                    {String(p.user_name || 'U')
+                      .slice(0, 1)
+                      .toUpperCase()}
+                  </Avatar>
+                </ListItemAvatar>
+                <ListItemText
+                  primary={p.user_name}
+                  secondary={new Date(p.joined_at).toLocaleString('ru-RU')}
+                />
+              </ListItem>
+            ))}
+          </List>
+        )}
+      </Paper>
     </Box>
   );
 }

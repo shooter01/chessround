@@ -2,7 +2,7 @@
 const express = require('express');
 const { Pool } = require('pg');
 const router = express.Router();
-
+const db = require('../db');
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   // ssl: { rejectUnauthorized: false }, // если нужен SSL
@@ -10,6 +10,50 @@ const pool = new Pool({
 
 function toUiStatus(is_started, is_over) {
   return is_started && !is_over ? 'active' : 'upcoming';
+}
+// ====== auth helpers (как в /puzzles/solve) ======
+// вместо SELECT lichess_id, lichess_username ...
+async function userFromAuthHeader(req) {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith('Bearer ')) return null;
+  const token = auth.slice(7);
+
+  // берём только lichess_id
+  const r = await db.query(
+    `SELECT lichess_id
+       FROM chesscup.chesscup_users
+      WHERE access_token = $1`,
+    [token]
+  );
+  if (!r.rowCount) return null;
+
+  const lichessId = r.rows[0].lichess_id; // часто это строковый логин lichess
+  return {
+    id: lichessId, // используем как идентификатор
+    name: lichessId, // и как отображаемое имя
+  };
+}
+
+async function authOptional(req, res, next) {
+  try {
+    req.user = await userFromAuthHeader(req);
+    next();
+  } catch (e) {
+    console.error('authOptional error', e);
+    next();
+  }
+}
+
+async function authRequired(req, res, next) {
+  try {
+    const u = await userFromAuthHeader(req);
+    if (!u) return res.status(401).json({ error: 'Unauthorized' });
+    req.user = u;
+    next();
+  } catch (e) {
+    console.error('authRequired error', e);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
 }
 
 function genShortId(title = 'tournament') {
@@ -274,6 +318,215 @@ router.get('/', async (req, res) => {
   } catch (e) {
     console.error('GET /tournaments error:', e);
     return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+router.get('/:slug', authOptional, async (req, res) => {
+  const slug = String(req.params.slug);
+  const limit = Math.min(parseInt(req.query.limit || '100', 10), 500);
+
+  const sqlTournament = `
+    SELECT
+      t.id, t.short_id, t.title, t.theme_name, t.season_id, t.league_id, t.league_name,
+      t.is_started, t.is_over, t.current_round, t.max_rounds,
+      t.start_time, t.next_round_time, t.round_gap_sec, t.puzzles_per_round, t.time_per_puzzle_sec,
+      t.participants_count, t.owner_id, t.owner_name, t.created_at, t.updated_at
+    FROM chesscup.step_tournaments t
+    WHERE t.short_id = $1
+    LIMIT 1
+  `;
+  const sqlParticipants = `
+    SELECT p.user_id, p.user_name, p.joined_at
+    FROM chesscup.step_tournaments_participants p
+    JOIN chesscup.step_tournaments t ON t.id = p.tournament_id
+    WHERE t.short_id = $1
+    ORDER BY p.joined_at ASC
+    LIMIT $2
+  `;
+
+  try {
+    const [tq, pq] = await Promise.all([
+      db.query(sqlTournament, [slug]),
+      db.query(sqlParticipants, [slug, limit]),
+    ]);
+    if (!tq.rows.length)
+      return res.status(404).json({ error: 'Not found' });
+
+    const t = tq.rows[0];
+    const meId = req.user?.id ?? null;
+    const isParticipant = !!(
+      meId && pq.rows.some((r) => String(r.user_id) === String(meId))
+    );
+
+    return res.json({
+      id: t.id,
+      slug: t.short_id,
+      title: t.title,
+      description: t.theme_name || '',
+      status: toUiStatus(t.is_started, t.is_over),
+      isStarted: t.is_started,
+      isOver: t.is_over,
+      currentRound: t.current_round,
+      maxRounds: t.max_rounds,
+      startAt: t.start_time,
+      nextRoundAt: t.next_round_time,
+      roundGapSec: t.round_gap_sec,
+      puzzlesPerRound: t.puzzles_per_round,
+      timePerPuzzleSec: t.time_per_puzzle_sec,
+      participantsCount: t.participants_count,
+      ownerId: t.owner_id,
+      ownerName: t.owner_name,
+      leagueId: t.league_id,
+      leagueName: t.league_name,
+      isParticipant,
+      participants: pq.rows,
+    });
+  } catch (e) {
+    console.error('GET /tournaments/:slug error:', e);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// полный список участников (если нужен)
+router.get('/:slug/participants', async (req, res) => {
+  const slug = String(req.params.slug);
+  const limit = Math.min(
+    parseInt(req.query.limit || '1000', 10),
+    5000
+  );
+  const offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
+
+  const sql = `
+    SELECT p.user_id, p.user_name, p.joined_at
+    FROM chesscup.step_tournaments_participants p
+    JOIN chesscup.step_tournaments t ON t.id = p.tournament_id
+    WHERE t.short_id = $1
+    ORDER BY p.joined_at ASC
+    LIMIT $2 OFFSET $3
+  `;
+  try {
+    const { rows } = await pool.query(sql, [slug, limit, offset]);
+    res.json(rows);
+  } catch (e) {
+    console.error('GET /tournaments/:slug/participants error:', e);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// ====== join ======
+router.post('/:slug/join', authRequired, async (req, res) => {
+  const slug = String(req.params.slug);
+  const userId = req.user.id;
+  const userName = req.user.name || 'Player';
+
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const tRes = await client.query(
+      `SELECT id, is_over FROM chesscup.step_tournaments WHERE short_id=$1 FOR UPDATE`,
+      [slug]
+    );
+    if (!tRes.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Not found' });
+    }
+    const t = tRes.rows[0];
+    if (t.is_over) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Tournament finished' });
+    }
+
+    const ins = await client.query(
+      `INSERT INTO chesscup.step_tournaments_participants (tournament_id, user_id, user_name)
+       VALUES ($1,$2,$3)
+       ON CONFLICT (tournament_id, user_id) DO NOTHING
+       RETURNING 1`,
+      [t.id, userId, userName]
+    );
+
+    if (ins.rowCount > 0) {
+      await client.query(
+        `UPDATE chesscup.step_tournaments
+            SET participants_count = participants_count + 1
+          WHERE id=$1`,
+        [t.id]
+      );
+    }
+
+    const cnt = await client.query(
+      `SELECT participants_count FROM chesscup.step_tournaments WHERE id=$1`,
+      [t.id]
+    );
+
+    await client.query('COMMIT');
+    res.json({
+      ok: true,
+      participantsCount: cnt.rows[0].participants_count,
+    });
+  } catch (e) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {}
+    console.error('POST /tournaments/:slug/join error:', e);
+    res.status(500).json({ error: 'Internal Server Error' });
+  } finally {
+    client.release();
+  }
+});
+
+router.post('/:slug/leave', authRequired, async (req, res) => {
+  const slug = String(req.params.slug);
+  const userId = req.user.id;
+
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const tRes = await client.query(
+      `SELECT id FROM chesscup.step_tournaments WHERE short_id=$1 FOR UPDATE`,
+      [slug]
+    );
+    if (!tRes.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Not found' });
+    }
+    const t = tRes.rows[0];
+
+    const del = await client.query(
+      `DELETE FROM chesscup.step_tournaments_participants
+       WHERE tournament_id=$1 AND user_id=$2
+       RETURNING 1`,
+      [t.id, userId]
+    );
+
+    if (del.rowCount > 0) {
+      await client.query(
+        `UPDATE chesscup.step_tournaments
+           SET participants_count = GREATEST(participants_count - 1, 0)
+         WHERE id=$1`,
+        [t.id]
+      );
+    }
+
+    const cnt = await client.query(
+      `SELECT participants_count FROM chesscup.step_tournaments WHERE id=$1`,
+      [t.id]
+    );
+
+    await client.query('COMMIT');
+    res.json({
+      ok: true,
+      participantsCount: cnt.rows[0].participants_count,
+    });
+  } catch (e) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {}
+    console.error('POST /tournaments/:slug/leave error:', e);
+    res.status(500).json({ error: 'Internal Server Error' });
+  } finally {
+    client.release();
   }
 });
 

@@ -53,3 +53,24 @@ SET step_id = EXCLUDED.step_id,
     message = EXCLUDED.message;
 
 
+
+    -- chesscup.step_tournaments_participants
+CREATE TABLE IF NOT EXISTS chesscup.step_tournaments_participants (
+  tournament_id BIGINT NOT NULL REFERENCES chesscup.step_tournaments(id) ON DELETE CASCADE,
+  user_id       BIGINT NOT NULL,
+  user_name     TEXT   NOT NULL,
+  joined_at     timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tournament_id, user_id)
+);
+
+-- для быстрых выборок по турниру
+CREATE INDEX IF NOT EXISTS idx_stp_by_tournament
+  ON chesscup.step_tournaments_participants (tournament_id, joined_at);
+
+-- (опционально) для моих турниров:
+CREATE INDEX IF NOT EXISTS idx_stp_by_user
+  ON chesscup.step_tournaments_participants (user_id, joined_at);
+
+
+ALTER TABLE chesscup.step_tournaments_participants
+  ALTER COLUMN user_id TYPE text USING user_id::text;
