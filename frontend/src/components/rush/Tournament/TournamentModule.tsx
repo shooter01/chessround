@@ -161,7 +161,7 @@ export default function TournamentList() {
     (t: CreateTournamentResult) => {
       setOpenCreate(false);
       loadList();
-      navigate(`/rush/tournaments/${t.slug}`);
+      navigate(`/tournaments/${t.slug}`);
     },
     [navigate, loadList],
   );
@@ -244,7 +244,7 @@ export default function TournamentList() {
           <Card
             key={t.id}
             component={CardActionArea}
-            onClick={() => navigate(`/rush/tournaments/${t.slug}`)}
+            onClick={() => navigate(`/tournaments/${t.slug}`)}
             sx={{ boxShadow: 1, '&:hover': { boxShadow: 4 } }}
           >
             <CardContent>

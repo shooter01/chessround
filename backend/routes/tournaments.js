@@ -412,8 +412,62 @@ router.get('/:slug/participants', async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+router.get('/:slug/leaderboard', authOptional, async (req, res) => {
+  const slug = String(req.params.slug);
+  console.log('HIT /tournaments/:slug/leaderboard', slug); // дебаг в логе
 
-// ====== join ======
+  try {
+    // 1) мета по турниру
+    const tRes = await db.query(
+      `SELECT id, max_rounds, current_round, is_over
+         FROM chesscup.step_tournaments
+        WHERE short_id = $1
+        LIMIT 1`,
+      [slug]
+    );
+    if (!tRes.rowCount) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    const t = tRes.rows[0];
+
+    // 2) если нет ещё таблицы результатов — вернём участников как заглушку
+    //    (чтобы фронт увидел ответ и ты убедился, что вызов идёт)
+    const pRes = await db.query(
+      `SELECT user_id, user_name, joined_at
+         FROM chesscup.step_tournaments_participants
+        WHERE tournament_id = $1
+        ORDER BY joined_at ASC
+        LIMIT 500`,
+      [t.id]
+    );
+
+    // 3) соберём строки под фронтовый формат
+    const rows = pRes.rows.map((r) => ({
+      user_id: r.user_id,
+      user_name: r.user_name,
+      total_points: 0,
+      time_spent_sec: 0,
+      // сгенерим пустые round_points_1..N
+      ...Object.fromEntries(
+        Array.from({ length: t.max_rounds }, (_, i) => [
+          `round_points_${i + 1}`,
+          null,
+        ])
+      ),
+    }));
+
+    return res.json({
+      maxRounds: t.max_rounds,
+      currentRound: t.current_round,
+      isOver: t.is_over,
+      rows,
+    });
+  } catch (e) {
+    console.error('GET /tournaments/:slug/leaderboard error:', e);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 router.post('/:slug/join', authRequired, async (req, res) => {
   const slug = String(req.params.slug);
   const userId = req.user.id;

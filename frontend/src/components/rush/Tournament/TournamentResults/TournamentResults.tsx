@@ -23,13 +23,15 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import TimerIcon from '@mui/icons-material/Timer';
-import { useNavigate, useParams } from 'react-router-dom';
+import EmojiEvents from '@mui/icons-material/EmojiEvents';
 import axios from 'axios';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../../../contexts/AuthContext.tsx';
 import { API_BASE } from '@api/api';
+import LeaderboardTable, { LeaderboardRow } from '../LeaderboardTable';
 
 interface Participant {
-  user_id: number;
+  user_id: string | number;
   user_name: string;
   joined_at: string;
 }
@@ -56,6 +58,22 @@ interface ApiTournamentDetails {
   leagueName: string | null;
   isParticipant: boolean;
   participants: Participant[];
+}
+
+interface ApiLeaderboardRow {
+  user_id: string | number;
+  user_name: string;
+  total_points: number;
+  time_spent_sec: number;
+  // round_points_1..N
+  [k: `round_points_${number}`]: number | null | undefined;
+}
+
+interface ApiLeaderboardResponse {
+  maxRounds: number;
+  currentRound: number;
+  isOver: boolean;
+  rows: ApiLeaderboardRow[];
 }
 
 function formatDate(iso?: string | null, tz?: string) {
@@ -87,28 +105,32 @@ function formatCountdown(targetIso?: string | null): string {
 export default function TournamentDetails() {
   const { slug = '' } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { token } = useAuth(); // ← источник Bearer
+  const { token, user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [t, setT] = useState<ApiTournamentDetails | null>(null);
   const [countdown, setCountdown] = useState<string>('');
-  const [joining, setJoining] = useState(false);
-  const [leaving, setLeaving] = useState(false);
 
-  const refresh = useCallback(async () => {
+  // leaderboard state
+  const [boardLoading, setBoardLoading] = useState(false);
+  const [boardErr, setBoardErr] = useState<string | null>(null);
+  const [board, setBoard] = useState<{
+    maxRounds: number;
+    currentRound: number;
+    isOver: boolean;
+    rows: LeaderboardRow[];
+  } | null>(null);
+
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const refreshDetails = useCallback(async () => {
     setLoading(true);
     setErr(null);
     try {
       const { data } = await axios.get<ApiTournamentDetails>(
         `${API_BASE}/tournaments/${encodeURIComponent(slug)}`,
-        {
-          headers: {
-            Accept: 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          withCredentials: true,
-        },
+        { headers: { Accept: 'application/json', ...authHeaders }, withCredentials: true },
       );
       setT(data);
     } catch (e: any) {
@@ -118,11 +140,71 @@ export default function TournamentDetails() {
     }
   }, [slug, token]);
 
-  useEffect(() => {
-    if (slug) refresh();
-  }, [slug, refresh]);
+  const refreshBoard = useCallback(async () => {
+    setBoardLoading(true);
+    setBoardErr(null);
+    try {
+      console.debug('[Leaderboard] GET', `${API_BASE}/tournaments/${slug}/leaderboard`);
+      const { data } = await axios.get<ApiLeaderboardResponse>(
+        `${API_BASE}/tournaments/${encodeURIComponent(slug)}/leaderboard`,
+        {
+          headers: {
+            Accept: 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          withCredentials: true,
+        },
+      );
 
-  // Обновляем таймер раз в секунду
+      const rows: LeaderboardRow[] = data.rows.map((r) => {
+        const rounds: Array<number | null> = [];
+        for (let i = 1; i <= data.maxRounds; i++) {
+          rounds.push((r as any)[`round_points_${i}`] ?? null);
+        }
+        return {
+          userId: r.user_id,
+          userName: r.user_name,
+          total: r.total_points,
+          timeSec: r.time_spent_sec ?? 0,
+          rounds,
+        };
+      });
+      setBoard({
+        maxRounds: data.maxRounds,
+        currentRound: data.currentRound,
+        isOver: data.isOver,
+        rows,
+      });
+    } catch (e: any) {
+      setBoardErr(e?.response?.data?.error || e?.message || 'Ошибка загрузки таблицы');
+    } finally {
+      setBoardLoading(false);
+    }
+  }, [slug, token]);
+
+  // 1) загрузка деталей
+  useEffect(() => {
+    if (slug) refreshDetails();
+  }, [slug, refreshDetails]);
+
+  // 2) гарантированный вызов /leaderboard на маунт
+  useEffect(() => {
+    if (slug) refreshBoard();
+  }, [slug, refreshBoard]);
+
+  // 3) и сразу после получения деталей (чтобы точно дернулось)
+  useEffect(() => {
+    if (t) refreshBoard();
+  }, [t, refreshBoard]);
+
+  // 4) авто-поллинг пока турнир идёт
+  useEffect(() => {
+    if (!t || !t.isStarted || t.isOver) return;
+    const id = setInterval(() => refreshBoard(), 10000); // каждые 10 сек
+    return () => clearInterval(id);
+  }, [t?.isStarted, t?.isOver, refreshBoard]);
+
+  // countdown
   useEffect(() => {
     if (!t) return;
     const target = t.isStarted ? t.nextRoundAt : t.startAt;
@@ -131,6 +213,10 @@ export default function TournamentDetails() {
     const id = setInterval(() => setCountdown(formatCountdown(target)), 1000);
     return () => clearInterval(id);
   }, [t]);
+
+  // join/leave
+  const [joining, setJoining] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   const handleJoin = useCallback(async () => {
     if (!t) return;
@@ -145,15 +231,12 @@ export default function TournamentDetails() {
         `${API_BASE}/tournaments/${encodeURIComponent(t.slug)}/join`,
         {},
         {
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
           withCredentials: true,
         },
       );
       if (!data?.ok) throw new Error(data?.error || 'Ошибка вступления');
-      await refresh();
+      await Promise.all([refreshDetails(), refreshBoard()]);
     } catch (e: any) {
       if (e?.response?.status === 401) {
         navigate('/login');
@@ -163,7 +246,7 @@ export default function TournamentDetails() {
     } finally {
       setJoining(false);
     }
-  }, [t, token, navigate, refresh]);
+  }, [t, token, navigate, refreshDetails, refreshBoard]);
 
   const handleLeave = useCallback(async () => {
     if (!t) return;
@@ -178,15 +261,12 @@ export default function TournamentDetails() {
         `${API_BASE}/tournaments/${encodeURIComponent(t.slug)}/leave`,
         {},
         {
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
           withCredentials: true,
         },
       );
       if (!data?.ok) throw new Error(data?.error || 'Ошибка выхода');
-      await refresh();
+      await Promise.all([refreshDetails(), refreshBoard()]);
     } catch (e: any) {
       if (e?.response?.status === 401) {
         navigate('/login');
@@ -196,7 +276,7 @@ export default function TournamentDetails() {
     } finally {
       setLeaving(false);
     }
-  }, [t, token, navigate, refresh]);
+  }, [t, token, navigate, refreshDetails, refreshBoard]);
 
   if (loading)
     return (
@@ -230,6 +310,7 @@ export default function TournamentDetails() {
 
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto', p: 2 }}>
+      {/* Верхняя панель */}
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
         <IconButton onClick={() => navigate(-1)}>
           <ArrowBackIosNewIcon />
@@ -241,18 +322,17 @@ export default function TournamentDetails() {
         {statusChip}
       </Stack>
 
+      {/* Блок с информацией */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack direction="row" spacing={3} alignItems="center" flexWrap="wrap">
           <Stack direction="row" spacing={1} alignItems="center">
             <PeopleIcon />
             <Typography>{t.participantsCount}</Typography>
           </Stack>
-
           <Stack direction="row" spacing={1} alignItems="center">
             <CalendarTodayIcon />
             <Typography>{formatDate(t.startAt)}</Typography>
           </Stack>
-
           <Stack direction="row" spacing={1} alignItems="center">
             <TimerIcon />
             <Typography>
@@ -271,7 +351,6 @@ export default function TournamentDetails() {
               )}
             </Typography>
           </Stack>
-
           <Stack direction="row" spacing={1} alignItems="center">
             <SportsEsportsIcon />
             <Typography>
@@ -279,16 +358,13 @@ export default function TournamentDetails() {
               s/пазл
             </Typography>
           </Stack>
-
           {!!t.leagueId && t.leagueId !== 'noleague' && (
             <Stack direction="row" spacing={1} alignItems="center">
-              <EmojiEventsIcon />
+              <EmojiEvents />
               <Typography>Лига: {t.leagueName}</Typography>
             </Stack>
           )}
-
           <Box flexGrow={1} />
-
           {!t.isOver &&
             (t.isParticipant ? (
               <Button
@@ -325,7 +401,66 @@ export default function TournamentDetails() {
         )}
       </Paper>
 
-      <Paper sx={{ p: 2 }}>
+      {/* Шапка таблицы как на скрине: зелёная плашка с раундом и статусом */}
+      <Paper sx={{ p: 1.2, mb: 1, bgcolor: 'success.main', color: 'common.white' }}>
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <Typography fontWeight={700}>
+            Раунд:&nbsp;
+            <Chip
+              size="small"
+              variant="filled"
+              label={`${Math.min(board?.currentRound ?? t.currentRound, t.maxRounds)} из ${t.maxRounds}`}
+              sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 700 }}
+            />
+          </Typography>
+          <Chip
+            size="small"
+            color={t.isOver ? 'error' : t.isStarted ? 'info' : 'warning'}
+            label={t.isOver ? 'Завершён' : t.isStarted ? 'Идёт' : 'Скоро'}
+            sx={{ ml: 1, color: 'white' }}
+          />
+        </Stack>
+      </Paper>
+
+      {/* Таблица результатов */}
+      {boardLoading ? (
+        <Box sx={{ textAlign: 'center', py: 3 }}>
+          <CircularProgress size={24} />
+        </Box>
+      ) : boardErr ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {boardErr}
+        </Alert>
+      ) : board ? (
+        <LeaderboardTable
+          rows={board.rows}
+          maxRounds={board.maxRounds}
+          currentUserId={user?.id}
+          onUserClick={(id) => {
+            // сюда можно добавить переход на профиль/страницу игрока
+            console.log('click user', id);
+          }}
+          height={420}
+        />
+      ) : null}
+
+      {/* Блок «О турнире» как в старом UI */}
+      <Box sx={{ color: 'text.secondary', mt: 2 }}>
+        <Typography align="center" variant="subtitle2" sx={{ opacity: 0.7, mb: 1 }}>
+          О турнире
+        </Typography>
+        <Typography>Кол-во раундов: {t.maxRounds}</Typography>
+        <Typography>Время на раунд: {t.roundGapSec} сек.</Typography>
+        <Typography>Начало: {formatDate(t.startAt)}</Typography>
+        <Typography>Тема: {t.description || '—'}</Typography>
+        <Typography>Пазлов в раунде: {t.puzzlesPerRound}</Typography>
+        <Typography>
+          Секунд на пазл: {t.timePerPuzzleSec === 0 ? 'unlimit' : t.timePerPuzzleSec}
+        </Typography>
+      </Box>
+
+      {/* Участники (если хочешь оставить как было) */}
+      <Paper sx={{ p: 2, mt: 2 }}>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
           <PeopleIcon />
           <Typography variant="h6">Участники</Typography>
