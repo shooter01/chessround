@@ -1,0 +1,86 @@
+name: Prune stale branches (5min TTL)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Не удалять, только показать кандидатов"
+        type: boolean
+        default: true
+  schedule:
+    - cron: "*/5 * * * *"   # каждые 5 минут
+
+permissions:
+  contents: write            # нужно для git push :branch (удаление)
+  pull-requests: read        # нужно, чтобы не трогать ветки с открытыми PR
+
+env:
+  AGE_MINUTES: "5"                                   # порог «старости»
+  EXCLUDE_REGEX: "^(main|master|prod|stable/|release/|hotfix/)"  # защищённые ветки/префиксы
+  DEFAULT_BRANCH: "${{ github.event.repository.default_branch || 'main' }}"
+
+concurrency:
+  group: prune-branches
+  cancel-in-progress: true
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine DRY_RUN flag
+        id: flags
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" = "false" ]; then
+            echo "DRY_RUN=0" >> $GITHUB_OUTPUT
+          else
+            echo "DRY_RUN=1" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fetch all remote branches
+        run: |
+          git fetch --all --prune --quiet
+
+      - name: Collect open PR branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr list --state open --json headRefName -q '.[].headRefName' \
+            | sort -u > /tmp/open_pr.txt || true
+          echo "Open PR branches:"; cat /tmp/open_pr.txt || true
+
+      - name: Find candidates older than AGE_MINUTES
+        run: |
+          cutoff=$(( $(date -u +%s) - ${AGE_MINUTES}*60 ))
+          git for-each-ref --format='%(committerdate:unix) %(refname:short)' refs/remotes/origin \
+            | awk -v c="$cutoff" '$1 < c {print $2}' \
+            | sed 's#^origin/##' \
+            | grep -Ev "${EXCLUDE_REGEX}" \
+            | grep -vFxf /tmp/open_pr.txt \
+            | grep -v "^${DEFAULT_BRANCH}$" \
+            | sort -u > /tmp/to_delete.txt || true
+
+          echo "Кандидаты на удаление:"; cat /tmp/to_delete.txt || echo "(ничего)"
+
+      - name: Delete branches (or dry-run)
+        env:
+          DRY_RUN: ${{ steps.flags.outputs.DRY_RUN }}
+        run: |
+          if [ ! -s /tmp/to_delete.txt ]; then
+            echo "Нечего удалять"; exit 0
+          fi
+
+          if [ "$DRY_RUN" = "1" ]; then
+            echo "DRY-RUN: ничего не удаляем"
+            cat /tmp/to_delete.txt
+            exit 0
+          fi
+
+          while read b; do
+            echo "Удаляю $b"
+            git push origin ":$b" || true
+          done < /tmp/to_delete.txt
